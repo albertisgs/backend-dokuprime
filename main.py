@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from src.request.routes import RequestRoutes
 from src.knowledge.routes import KnowledgeRoutes
+from src.auth.routes import AuthRoutes
+from src.authazure.routes import AzureADRoutes 
 
 class SynchronoSyncAPI:
     def __init__(self):
@@ -22,6 +24,10 @@ class SynchronoSyncAPI:
         self.app.include_router(request_routes.router, prefix="/api/request")
         knowledge_routes = KnowledgeRoutes()
         self.app.include_router(knowledge_routes.router, prefix="/api/knowledge")
+        auth_routes = AuthRoutes()
+        self.app.include_router(auth_routes.router, prefix="/api/auth")
+        azure_ad_routes = AzureADRoutes()
+        self.app.include_router(azure_ad_routes.router, prefix="/api/authazure")
 
     def run(self):
         uvicorn.run(
