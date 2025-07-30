@@ -26,8 +26,8 @@ class SynchronoSyncAPI:
         self.app.include_router(knowledge_routes.router, prefix="/api/knowledge")
         auth_routes = AuthRoutes()
         self.app.include_router(auth_routes.router, prefix="/api/auth")
-        azure_ad_routes = AzureADRoutes()
-        self.app.include_router(azure_ad_routes.router, prefix="/api/authazure")
+        # azure_ad_routes = AzureADRoutes()
+        # self.app.include_router(azure_ad_routes.router, prefix="/api/authazure")
 
     def run(self):
         uvicorn.run(
