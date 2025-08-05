@@ -20,7 +20,7 @@ class AzureADRoutes:
         async def callback(code: str, state: str = None):
             token = await self.handler.get_token(code)
 
-            frontend_redirect_url = f"http://localhost:5173/auth-microsoft/callback?access_token={token.access_token}&id_token={token.id_token or ''}&state={state or ''}"
+            frontend_redirect_url = f"{self.handler.config.FRONTEND_URL}/auth-microsoft/callback?access_token={token.access_token}&id_token={token.id_token or ''}&state={state or ''}"
             return RedirectResponse(url=frontend_redirect_url)
             
 

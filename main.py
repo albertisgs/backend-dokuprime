@@ -5,7 +5,7 @@ from src.request.routes import RequestRoutes
 from src.knowledge.routes import KnowledgeRoutes
 from src.auth.routes import AuthRoutes
 from src.authazure.routes import AzureADRoutes 
-from src.annualscrape.routes import AnnualScrapeRoutes
+from src.annualscrape.routes import router as annual_scrape_router 
 
 class SynchronoSyncAPI:
     def __init__(self):
@@ -27,10 +27,9 @@ class SynchronoSyncAPI:
         self.app.include_router(knowledge_routes.router, prefix="/api/knowledge")
         auth_routes = AuthRoutes()
         self.app.include_router(auth_routes.router, prefix="/api/auth")
-        annual_scrape_routes = AnnualScrapeRoutes()
-        self.app.include_router(annual_scrape_routes.router, prefix="/api/annualscrape")
         azure_ad_routes = AzureADRoutes()
         self.app.include_router(azure_ad_routes.router, prefix="/api/authazure")
+        self.app.include_router(annual_scrape_router,prefix="/api/annualscrape",tags=["Annual Report Scraper"])
 
     def run(self):
         uvicorn.run(
