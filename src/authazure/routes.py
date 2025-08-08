@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from .handler import AzureADHandler
 from .schemas import Token, UserInfo, AuthURL
 from .dependencies import get_azure_ad_handler, get_current_user, verify_token
+from .repository import MicrosoftAuthRepository
 
 class AzureADRoutes:
     def __init__(self):
@@ -19,7 +20,26 @@ class AzureADRoutes:
         @self.router.get("/callback")
         async def callback(code: str, state: str = None):
             token = await self.handler.get_token(code)
+            user_info = await self.handler.get_user_info(token.id_token or token.access_token)
 
+            # Init the repository (sync)
+            repo = MicrosoftAuthRepository()
+
+            # Check if user already exists
+            existing = repo.get_user_by_email(user_info.email)
+            if not existing:
+                role_id = repo.get_role_id_by_name(self.handler.config.DEFAULT_ROLE)
+                if not role_id:
+                    raise HTTPException(status_code=400, detail="Role 'financial' not found")
+
+                repo.create_user_management(
+                    id_user=user_info.id,
+                    role_id=role_id,
+                    email=user_info.email,
+                    account_type="microsoft"
+                )
+
+            # Redirect
             frontend_redirect_url = f"{self.handler.config.FRONTEND_URL}/auth-microsoft/callback?access_token={token.access_token}&id_token={token.id_token or ''}&state={state or ''}"
             return RedirectResponse(url=frontend_redirect_url)
             

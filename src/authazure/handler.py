@@ -6,6 +6,7 @@ from jose import jwt, JWTError
 from datetime import datetime, timedelta
 import os
 import secrets
+from .repository import MicrosoftAuthRepository
 
 class AzureADHandler:
     def __init__(self):
@@ -47,37 +48,44 @@ class AzureADHandler:
 
     async def get_user_info(self, token: str) -> UserInfo:
         try:
-            # First try to get claims from the ID token
             claims = jwt.get_unverified_claims(token)
             if "name" in claims and "email" in claims:
-                return UserInfo(
+                user_info = UserInfo(
                     id=claims.get("oid", claims.get("sub")),
                     name=claims.get("name"),
                     email=claims.get("email")
                 )
-
-            # Fallback to Microsoft Graph API
-            async with httpx.AsyncClient() as client:
-                headers = {"Authorization": f"Bearer {token}"}
-                response = await client.get(
-                    "https://graph.microsoft.com/v1.0/me",
-                    headers=headers
-                )
-                
-                if response.status_code != 200:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Failed to fetch user info from Microsoft Graph"
+            else:
+                async with httpx.AsyncClient() as client:
+                    headers = {"Authorization": f"Bearer {token}"}
+                    response = await client.get(
+                        "https://graph.microsoft.com/v1.0/me",
+                        headers=headers
                     )
 
-                user_data = response.json()
-                return UserInfo(
-                    id=user_data.get("id"),
-                    name=user_data.get("displayName"),
-                    email=user_data.get("mail") or user_data.get("userPrincipalName")
-                )
+                    if response.status_code != 200:
+                        raise HTTPException(
+                            status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Failed to fetch user info from Microsoft Graph"
+                        )
 
-        except JWTError as e:
+                    user_data = response.json()
+                    user_info = UserInfo(
+                        id=user_data.get("id"),
+                        name=user_data.get("displayName"),
+                        email=user_data.get("mail") or user_data.get("userPrincipalName")
+                    )
+
+            # Fetch role/account_type from database
+            repo = MicrosoftAuthRepository()
+            user_record = repo.get_user_by_email(user_info.email)
+            if user_record:
+                user_info.id_role = user_record[2]  # index depends on SELECT *
+                user_info.account_type = user_record[4]
+
+            return user_info
+
+        except JWTError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"

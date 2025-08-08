@@ -6,6 +6,12 @@ from src.knowledge.routes import KnowledgeRoutes
 from src.auth.routes import AuthRoutes
 from src.authazure.routes import AzureADRoutes 
 from src.annualscrape.routes import router as annual_scrape_router 
+from src.oauthgoogle.routes import GoogleOAuthRoutes
+
+# --- START OF CHANGE ---
+# Import both routers from the usermanagement module
+from src.usermanagement.routes import router as usermanagement_router, public_router as usermanagement_public_router, authenticated_router as usermanagement_auth_router 
+# --- END OF CHANGE ---
 
 class SynchronoSyncAPI:
     def __init__(self):
@@ -29,7 +35,13 @@ class SynchronoSyncAPI:
         self.app.include_router(auth_routes.router, prefix="/api/auth")
         azure_ad_routes = AzureADRoutes()
         self.app.include_router(azure_ad_routes.router, prefix="/api/authazure")
+        google_ad_routes = GoogleOAuthRoutes()
+        self.app.include_router(google_ad_routes.router, prefix="/api/authgoogle")
         self.app.include_router(annual_scrape_router,prefix="/api/annualscrape",tags=["Annual Report Scraper"])
+        
+        self.app.include_router(usermanagement_router, prefix="/api/user-management")
+        self.app.include_router(usermanagement_public_router, prefix="/api/user-management")
+        self.app.include_router(usermanagement_auth_router, prefix="/api/user-management")
 
     def run(self):
         uvicorn.run(

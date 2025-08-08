@@ -23,7 +23,9 @@ class AuthRoutes:
             return {
                 "id": current_user["id"],
                 "username": current_user["username"],
-                "email": current_user["email"]
+                "email": current_user["email"],
+                "id_role": current_user.get("id_role"),
+                "account_type": current_user.get("account_type")
             }
         
         @self.router.get("/verify-token")
