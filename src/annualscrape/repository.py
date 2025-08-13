@@ -2,7 +2,7 @@
 
 import psycopg2
 import os
-
+from datetime import datetime 
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,18 +28,21 @@ class ScrapperRepository:
         try:
             conn = self._get_connection()
             cur = conn.cursor()
-            
+           # Get the current timestamp to use for all inserts
+            now = datetime.now()
+
             # INSERT INTO KNOWLEDGE BASE
             insert_query = """
                 INSERT INTO knowledge_base (id, company_name, report_title, year, upload_date, status, file_path)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
+            # Use the 'now' variable for the upload_date
             data_list = [
-                (16, "PT Hutama Karya (Persero) Tbk", "Annual Report 2024", 2024, "2025-07-30", "Completed", "/file_annual_report/Hutama/AR2024.pdf" ),
-                (17, "PT Hutama Karya (Persero) Tbk", "Annual Report 2023", 2023, "2025-07-30", "Completed", "/file_annual_report/Hutama/AR2023.pdf" ),
-                (18, "PT Hutama Karya (Persero) Tbk", "Annual Report 2022", 2022, "2025-07-30", "Completed", "/file_annual_report/Hutama/AR2022.pdf" ),
-                (19, "PT Hutama Karya (Persero) Tbk", "Annual Report 2021", 2021, "2025-07-30", "Completed", "/file_annual_report/Hutama/AR2021.pdf" ),
-                (20, "PT Hutama Karya (Persero) Tbk", "Annual Report 2020", 2020, "2025-07-30", "Completed", "/file_annual_report/Hutama/AR2020.pdf" ),
+                (16, "PT Hutama Karya (Persero) Tbk", "Annual Report 2024", 2024, now, "Completed", "/file_annual_report/Hutama/AR2024.pdf" ),
+                (17, "PT Hutama Karya (Persero) Tbk", "Annual Report 2023", 2023, now, "Completed", "/file_annual_report/Hutama/AR2023.pdf" ),
+                (18, "PT Hutama Karya (Persero) Tbk", "Annual Report 2022", 2022, now, "Completed", "/file_annual_report/Hutama/AR2022.pdf" ),
+                (19, "PT Hutama Karya (Persero) Tbk", "Annual Report 2021", 2021, now, "Completed", "/file_annual_report/Hutama/AR2021.pdf" ),
+                (20, "PT Hutama Karya (Persero) Tbk", "Annual Report 2020", 2020, now, "Completed", "/file_annual_report/Hutama/AR2020.pdf" ),
             ]
 
             # INSERT INTO DASHBOARD - FINANCIAL

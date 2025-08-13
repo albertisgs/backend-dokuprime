@@ -7,6 +7,9 @@ from src.auth.routes import AuthRoutes
 from src.authazure.routes import AzureADRoutes 
 from src.annualscrape.routes import router as annual_scrape_router 
 from src.oauthgoogle.routes import GoogleOAuthRoutes
+from src.cookiesauth.routes import AuthCookiesRoutes
+from src.sessionoauthgoogle.routes import GoogleOAuthCookiesRoutes
+from src.sessionauthmicrosoft.routes import AzureADRCookiesoutes
 
 # --- START OF CHANGE ---
 # Import both routers from the usermanagement module
@@ -19,7 +22,7 @@ class SynchronoSyncAPI:
 
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=["http://localhost:5173"],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -31,12 +34,18 @@ class SynchronoSyncAPI:
         self.app.include_router(request_routes.router, prefix="/api/request")
         knowledge_routes = KnowledgeRoutes()
         self.app.include_router(knowledge_routes.router, prefix="/api/knowledge")
-        auth_routes = AuthRoutes()
-        self.app.include_router(auth_routes.router, prefix="/api/auth")
-        azure_ad_routes = AzureADRoutes()
+        # auth_routes = AuthRoutes()
+        # self.app.include_router(auth_routes.router, prefix="/api/auth")
+        auth_cookies_routes = AuthCookiesRoutes()
+        self.app.include_router(auth_cookies_routes.router, prefix="/api/auth")
+        # azure_ad_routes = AzureADRoutes()
+        # self.app.include_router(azure_ad_routes.router, prefix="/api/authazure")
+        azure_ad_routes = AzureADRCookiesoutes()
         self.app.include_router(azure_ad_routes.router, prefix="/api/authazure")
-        google_ad_routes = GoogleOAuthRoutes()
-        self.app.include_router(google_ad_routes.router, prefix="/api/authgoogle")
+        # google_ad_routes = GoogleOAuthRoutes()
+        # self.app.include_router(google_ad_routes.router, prefix="/api/authgoogle")
+        google_cookies_routes = GoogleOAuthCookiesRoutes()
+        self.app.include_router(google_cookies_routes.router, prefix="/api/authgoogle")
         self.app.include_router(annual_scrape_router,prefix="/api/annualscrape",tags=["Annual Report Scraper"])
         
         self.app.include_router(usermanagement_router, prefix="/api/user-management")

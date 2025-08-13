@@ -3,7 +3,7 @@ from .schemas import UserManagementCreate, UserManagementUpdate, UserManagementO
 from .handler import UserManagementHandler
 from typing import List
 from ..utils.dependecies import get_current_superadmin
-from ..utils.authenticated_user import get_current_authenticated_user
+from ..utils.sessiondependencies import get_current_user_profile
 
 router = APIRouter(tags=["User Management"])
 handler = UserManagementHandler()
@@ -20,7 +20,7 @@ public_router = APIRouter(tags=["User Management"])
 # --- NEW: Router for general authenticated users ---
 authenticated_router = APIRouter(
     tags=["User Management"],
-    dependencies=[Depends(get_current_authenticated_user)]
+    dependencies=[Depends(get_current_user_profile)]
 )
 
 handler = UserManagementHandler()
