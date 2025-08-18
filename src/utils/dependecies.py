@@ -1,6 +1,7 @@
 # Import Request from fastapi
 from fastapi import Depends, HTTPException, status, Request
 from .sessionrepository import SessionRepository 
+from .sessiondependencies import get_current_user_profile
 
 SUPERADMIN_ROLE_ID = "8ea384d2-9d47-49d7-be95-b45d08a07aa3"
 
@@ -30,3 +31,13 @@ async def get_current_superadmin(request: Request): # Inject the full Request
 
     # You can return the session data or fetch the full user object
     return session_data
+
+def require_access(required_right: str):
+    def dependency(user: dict = Depends(get_current_user_profile)) -> dict:
+        if required_right not in user.get("access_list", []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient permissions. Requires '{required_right}' access."
+            )
+        return user
+    return dependency

@@ -18,6 +18,7 @@ class UserManagementUpdate(BaseModel):
 class UserManagementOut(UserManagementBase):
     id: UUID
     id_user: str | None = None
+    role_name: str | None = None
 
 
 class userCheckemail(BaseModel):

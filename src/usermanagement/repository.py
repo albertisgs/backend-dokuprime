@@ -24,10 +24,27 @@ class UserManagementRepository:
         )
 
     def list_all(self) -> List[dict]:
+        """
+        PERBAIKAN: Mengambil semua data pengguna dan langsung menyertakan
+        nama role dengan satu query JOIN yang efisien.
+        """
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute("SELECT * FROM user_management")
+            cur.execute(
+                """
+                SELECT
+                    um.id,
+                    um.id_user,
+                    um.id_role,
+                    um.email,
+                    um.account_type,
+                    r.name AS role_name
+                FROM user_management um
+                LEFT JOIN role r ON um.id_role = r.id
+                ORDER BY um.email;
+                """
+            )
             rows = cur.fetchall()
             columns = [desc[0] for desc in cur.description]
             return [dict(zip(columns, row)) for row in rows]

@@ -1,9 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from .handler import RequestHandler
+from ..utils.dependecies import require_access
 
 class RequestRoutes:
     def __init__(self):
-        self.router = APIRouter()
+        self.router = APIRouter(
+             dependencies=[Depends(require_access("prompt-management"))]
+        )
         self.handler = RequestHandler()
         self.setup_routes()
         print("RequestRoutes Initialized")

@@ -1,13 +1,13 @@
-import os
-import uuid
 import psycopg2
-from dotenv import load_dotenv
-from typing import List, Optional
+import os
+import json
+from typing import List, Optional, Tuple
+from uuid import UUID
+from .schemas import RoleCreate, RoleUpdate
 
-load_dotenv()
-
-class UserManagementRepository:
+class RoleRepository:
     def __init__(self):
+        # ... (Inisialisasi koneksi database seperti repository lainnya)
         self.user = os.getenv("DB_USER")
         self.password = os.getenv("DB_PASSWORD")
         self.db_name = os.getenv("DB_NAME")
@@ -15,165 +15,122 @@ class UserManagementRepository:
 
     def _get_connection(self):
         return psycopg2.connect(
-            dbname=self.db_name,
-            user=self.user,
-            password=self.password,
-            host="localhost",
-            port=self.port
+            dbname=self.db_name, user=self.user, password=self.password,
+            host="localhost", port=self.port
         )
 
-    def list_all(self) -> List[dict]:
+    def _map_row_to_dict(self, row, cursor):
+        if not row:
+            return None
+        columns = [desc[0] for desc in cursor.description]
+        role_dict = dict(zip(columns, row))
+        # Konversi string JSON dari database menjadi list Python
+        if role_dict.get('access') and isinstance(role_dict['access'], str):
+            role_dict['access'] = json.loads(role_dict['access'])
+        elif not role_dict.get('access'):
+            role_dict['access'] = []
+        return role_dict
+
+    def get_all(self) -> List[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute("SELECT * FROM user_management")
+            cur.execute("SELECT id, name, access FROM role ORDER BY name")
             rows = cur.fetchall()
-            columns = [desc[0] for desc in cur.description]
-            return [dict(zip(columns, row)) for row in rows]
+            return [self._map_row_to_dict(row, cur) for row in rows]
         finally:
             cur.close()
             conn.close()
 
-    def get_by_id(self, id: str) -> Optional[dict]:
+    def get_by_id(self, role_id: UUID) -> Optional[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute("SELECT * FROM user_management WHERE id = %s", (id,))
-            row = cur.fetchone()
-            if row:
-                columns = [desc[0] for desc in cur.description]
-                return dict(zip(columns, row))
-            return None
+            # PERBAIKAN: Ubah UUID menjadi string
+            cur.execute("SELECT id, name, access FROM role WHERE id = %s", (str(role_id),))
+            return self._map_row_to_dict(cur.fetchone(), cur)
         finally:
             cur.close()
             conn.close()
 
-    def create(self, data: UserManagementCreate) -> dict:
+    def create(self, role_data: RoleCreate) -> dict:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            new_id = str(uuid.uuid4())
+            # Konversi list Python menjadi string JSON untuk disimpan di DB
+            access_json = json.dumps(role_data.access)
             cur.execute(
-                """
-                INSERT INTO user_management (id, id_role, email, account_type)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id, id_role, email, account_type
-                """,
-                (new_id, data.id_role, data.email, data.account_type)
+                "INSERT INTO role (name, access) VALUES (%s, %s) RETURNING id, name, access",
+                (role_data.name, access_json)
             )
-            row = cur.fetchone()
-            columns = [desc[0] for desc in cur.description]
+            new_role = self._map_row_to_dict(cur.fetchone(), cur)
             conn.commit()
-            return dict(zip(columns, row))
-        except Exception as e:
-            conn.rollback()
-            raise e
+            return new_role
         finally:
             cur.close()
             conn.close()
 
-    def update(self, id: str, data: UserManagementUpdate) -> Optional[dict]:
+    def update(self, role_id: UUID, role_data: RoleUpdate) -> Optional[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            fields = []
-            values = []
-
-            # Add this block to handle the id_user field
-            if data.id_user is not None:
-                fields.append("id_user = %s")
-                values.append(data.id_user)
+            # Dapatkan data role yang ada saat ini
+            existing_role = self.get_by_id(role_id)
+            if not existing_role:
+                return None
             
-            if data.id_role:
-                fields.append("id_role = %s")
-                values.append(data.id_role)
-            if data.account_type:
-                fields.append("account_type = %s")
-                values.append(data.account_type)
+            update_data = role_data.model_dump(exclude_unset=True)
+            
+            # Jika ada update 'access', konversi ke JSON string
+            if 'access' in update_data:
+                update_data['access'] = json.dumps(update_data['access'])
 
-            if not fields:
-                return None  # nothing to update
+            if not update_data:
+                return existing_role # Tidak ada yang diupdate
 
-            values.append(id)
-            query = f"UPDATE user_management SET {', '.join(fields)} WHERE id = %s RETURNING *"
+            set_clause = ", ".join([f"{key} = %s" for key in update_data.keys()])
+            values = list(update_data.values())
+            # PERBAIKAN: Ubah UUID menjadi string
+            values.append(str(role_id))
+
+            query = f"UPDATE role SET {set_clause} WHERE id = %s RETURNING id, name, access"
+            
             cur.execute(query, tuple(values))
-            row = cur.fetchone()
-            if row:
-                columns = [desc[0] for desc in cur.description]
-                conn.commit()
-                return dict(zip(columns, row))
-            return None
-        except Exception as e:
-            conn.rollback()
-            raise e
+            updated_role = self._map_row_to_dict(cur.fetchone(), cur)
+            conn.commit()
+            return updated_role
         finally:
             cur.close()
             conn.close()
 
-    def delete(self, id: str) -> bool:
+    def delete(self, role_id: UUID) -> bool:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute("DELETE FROM user_management WHERE id = %s", (id,))
+            # PERBAIKAN: Ubah UUID menjadi string
+            cur.execute("DELETE FROM role WHERE id = %s", (str(role_id),))
             conn.commit()
             return cur.rowcount > 0
         finally:
             cur.close()
             conn.close()
 
-
-    def check(self, email: str) -> Optional[dict]:
-
-            conn = self._get_connection()
-            cur = conn.cursor()
-            try:
-                cur.execute("SELECT * FROM user_management WHERE email = %s", (email,))
-                row = cur.fetchone()
-                if row:
-                    columns = [desc[0] for desc in cur.description]
-                    return dict(zip(columns, row))
-                return None
-            finally:
-                cur.close()
-                conn.close()
-
-    def get_role_id_by_name(self, role_name: str):
+    def get_user_count_and_names(self, role_id: UUID) -> Tuple[int, List[str]]:
+        """Menghitung pengguna dan mengambil daftar username mereka."""
         conn = self._get_connection()
         cur = conn.cursor()
         try:
             cur.execute(
-                "SELECT id FROM role WHERE name = %s LIMIT 1",
-                (role_name,)
+                """
+                SELECT u.username FROM user_management um
+                JOIN users u ON um.id_user::uuid = u.id
+                WHERE um.id_role = %s
+                """, 
+                (str(role_id),)
             )
-            role = cur.fetchone()
-            return role[0] if role else None
-        finally:
-            cur.close()
-            conn.close()
-
-    def list_roles(self) -> List[dict]:
-        conn = self._get_connection()
-        cur = conn.cursor()
-        try:
-            # Select only the columns needed for the RoleOut schema
-            cur.execute("SELECT id, name FROM role")
             rows = cur.fetchall()
-            columns = [desc[0] for desc in cur.description]
-            return [dict(zip(columns, row)) for row in rows]
-        finally:
-            cur.close()
-            conn.close()
-
-    def get_role_by_id(self, role_id: str) -> Optional[dict]:
-        conn = self._get_connection()
-        cur = conn.cursor()
-        try:
-            cur.execute("SELECT name FROM role WHERE id = %s", (role_id,))
-            row = cur.fetchone()
-            if row:
-                columns = [desc[0] for desc in cur.description]
-                return dict(zip(columns, row))
-            return None
+            usernames = [row[0] for row in rows]
+            return len(usernames), usernames
         finally:
             cur.close()
             conn.close()
