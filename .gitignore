@@ -1,0 +1,25 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+.venv/
+
+.env
+
+
+# Exclude annual reports and legal docs
+/public/file_annual_report/**/*.pdf
+/public/file_annual_report/**/*.png
+/public/file_annual_report/**/*.jpeg
+/public/file_annual_report/**/*.jpg
+/public/file_annual_report/**/*.docx
+
+/public/legal/**/*.pdf
+/public/legal/**/*.png
+/public/legal/**/*.jpeg
+/public/legal/**/*.jpg
+/public/legal/**/*.docx
+

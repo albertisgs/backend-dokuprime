@@ -35,7 +35,7 @@ class UserManagementOut(BaseModel):
     """
     id: UUID
     id_user: str
-    id_role: UUID
+    id_team: UUID
     email: str
     account_type: str
 

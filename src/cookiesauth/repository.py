@@ -71,30 +71,30 @@ class AuthRepository:
             new_user = cur.fetchone()
             user_id, username, email = new_user
 
-            # Get default role 'finance'
-            cur.execute("SELECT id FROM role WHERE name = 'finance' LIMIT 1")
-            role_row = cur.fetchone()
-            if not role_row:
-                raise Exception("Default role 'finance' not found")
-            role_id = role_row[0]
+            # Get default team 'finance'
+            cur.execute("SELECT id FROM teams WHERE name = 'finance' LIMIT 1")
+            team_row = cur.fetchone()
+            if not team_row:
+                raise Exception("Default team 'finance' not found")
+            team_id = team_row[0]
 
             # Insert into user_management table
             account_type = 'credential'
             cur.execute(
                 """
-                INSERT INTO user_management (id_user, id_role, email, account_type)
+                INSERT INTO user_management (id_user, id_team, email, account_type)
                 VALUES (%s, %s, %s, %s)
                 """,
-                (str(user_id), str(role_id), email, account_type)
+                (str(user_id), str(team_id), email, account_type)
             )
-            
             conn.commit()
-            
+
             return {
                 "id": str(user_id),
                 "username": username,
                 "email": email,
-                "id_role": str(role_id),
+                # --- CHANGE HERE ---
+                "id_team": str(team_id),
                 "account_type": account_type
             }
         except Exception as e:

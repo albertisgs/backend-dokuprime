@@ -4,21 +4,21 @@ from uuid import UUID
 
 # Daftar hak akses yang valid di aplikasi Anda
 VALID_ACCESS_RIGHTS = [
-    "dashboard","knowledge-base","market-competitor-insight","prompt-management","upload-document","sipp-case-details","user-management","role-management"
+    "dashboard","knowledge-base","market-competitor-insight","prompt-management","upload-document","sipp-case-details","user-management","team-management"
 ]
 
-class RoleBase(BaseModel):
+class TeamBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=50)
     access: List[str] = Field(default=[], description="List of access rights")
 
-class RoleCreate(RoleBase):
+class TeamCreate(TeamBase):
     pass
 
-class RoleUpdate(BaseModel):
+class TeamUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=50)
     access: Optional[List[str]] = None
 
-class RoleOut(RoleBase):
+class TeamOut(TeamBase):
     id: UUID
 
     class Config:
@@ -26,8 +26,8 @@ class RoleOut(RoleBase):
 
 
 # Skema baru untuk respon jumlah pengguna
-class RoleUserCountOut(BaseModel):
-    role_id: UUID
+class TeamUserCountOut(BaseModel):
+    team_id: UUID
     user_count: int
     usernames: List[str]
     

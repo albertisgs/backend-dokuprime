@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from .schemas import UserManagementCreate, UserManagementUpdate, UserManagementOut, userCheckemail, RoleOut, RoleName
+from .schemas import UserManagementCreate, UserManagementUpdate, UserManagementOut, userCheckemail, TeamOut, TeamName
 from .handler import UserManagementHandler
 from typing import List
 from ..utils.dependecies import get_current_superadmin
@@ -59,7 +59,7 @@ def delete_user(id: str):
 
 # --- Public Route ---
 
-@public_router.post("/email/check") # Not restricted by token or role
+@public_router.post("/email/check") # Not restricted by token or team
 async def check_email(data: userCheckemail):
     user_exists = handler.check_email(data.email)
     if not user_exists:
@@ -85,19 +85,19 @@ async def check_email(data: userCheckemail):
 
     
 
-@public_router.get("/roles/", response_model=List[RoleOut])
-def get_roles_list():
+@public_router.get("/teams/", response_model=List[TeamOut])
+def get_teams_list():
     """
-    Returns a list of all available roles in the system.
+    Returns a list of all available teams in the system.
     This is a public endpoint.
     """
-    return handler.list_roles()
+    return handler.list_teams()
 
 # --- NEW: Endpoint for any authenticated user ---
-@authenticated_router.get("/roles/{role_id}", response_model=RoleName)
-def get_role_by_id(role_id: str):
+@authenticated_router.get("/teams/{team_id}", response_model=TeamName)
+def get_team_by_id(team_id: str):
     """
-    Returns a specific role by its ID.
+    Returns a specific team by its ID.
     Requires any authenticated user.
     """
-    return handler.get_role(role_id)
+    return handler.get_team(team_id)

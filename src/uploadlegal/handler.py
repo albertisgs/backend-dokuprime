@@ -64,7 +64,7 @@ class LegalDocumentHandler:
             "document_name": file.filename,
             "document_type": ALLOWED_MIME_TYPES.get(file.content_type, "Unknown"), # Dapatkan tipe dari dictionary
             "staff": user.get('username', 'Unknown'),
-            "team": user.get('role_name', 'Unknown'),
+            "team": user.get('team_name', 'Unknown'),
             "status": "Completed",
             "file_path": db_path
         }

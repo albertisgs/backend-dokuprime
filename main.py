@@ -7,9 +7,9 @@ from src.cookiesauth.routes import AuthCookiesRoutes
 from src.sessionoauthgoogle.routes import GoogleOAuthCookiesRoutes
 from src.sessionauthmicrosoft.routes import AzureADRCookiesoutes
 from src.usermanagement.routes import router as usermanagement_router, public_router as usermanagement_public_router, authenticated_router as usermanagement_auth_router 
-from src.rolemanagement.routes import router as role_management_router 
+from src.teammanagement.routes import router as team_management_router 
 from src.uploadlegal.routes import router as legal_document_router
-
+from src.rolemanagament.routes import router as role_management_router
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -18,11 +18,10 @@ class SynchronoSyncAPI:
         self.app = FastAPI()
 
         self.app.mount(
-            "/public",  # URL prefix
+            "/public",
             StaticFiles(directory=os.path.join(os.getcwd(), "public")),
             name="public"
         )
-
 
         self.app.add_middleware(
             CORSMiddleware,
@@ -53,9 +52,10 @@ class SynchronoSyncAPI:
         self.app.include_router(usermanagement_router, prefix="/api/user-management")
         self.app.include_router(usermanagement_public_router, prefix="/api/user-management")
         self.app.include_router(usermanagement_auth_router, prefix="/api/user-management")
+        
+        # --- CHANGE HERE ---
+        self.app.include_router(team_management_router, prefix="/api/teams-management")
         self.app.include_router(role_management_router, prefix="/api/roles-management")
-       
-
 
     def run(self):
         uvicorn.run(

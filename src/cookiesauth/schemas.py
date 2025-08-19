@@ -12,19 +12,21 @@ class UserLogin(BaseModel):
     password: str
 
 class UserOut(BaseModel):
-    """Defines the public-facing user model."""
     id: UUID
     username: str
     email: str 
-    id_role: UUID
-    role_name:str
+    # --- CHANGE HERE ---
+    id_team: UUID
+    id_role: str | None = None 
+    team_name:str
     account_type: str
     photo_url: str | None = None
     access_list: List[str] = []
-    
+    permissions: List[str] = []
 
+    
     class Config:
-        orm_mode = True
+        orm_mode = True # from_attributes = True for Pydantic v2
 
 class StatusResponse(BaseModel):
     """A generic response model for status messages."""

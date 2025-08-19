@@ -23,7 +23,7 @@ class MicrosoftAuthRepository:
     async def find_or_create_user(self, user_info: UserInfo) -> dict | None:
         """
         Finds a user by email. If they don't exist, creates them in both
-        the `users` and `user_management` tables with a default 'finance' role.
+        the `users` and `user_management` tables with a default 'finance' team.
         """
         conn = self._get_connection()
         cur = conn.cursor()
@@ -45,17 +45,17 @@ class MicrosoftAuthRepository:
                 # Check if a user_management entry already exists (unlikely, but safe)
                 cur.execute("SELECT id FROM user_management WHERE email = %s", (user_info.email,))
                 if not cur.fetchone():
-                    # Get default role 'finance'
-                    cur.execute("SELECT id FROM role WHERE name = 'finance' LIMIT 1")
-                    role_row = cur.fetchone()
-                    if not role_row:
-                        raise Exception("Default role 'finance' not found")
-                    role_id = role_row[0]
+                    # Get default team 'finance'
+                    cur.execute("SELECT id FROM teams WHERE name = 'finance' LIMIT 1")
+                    team_row = cur.fetchone()
+                    if not team_row:
+                        raise Exception("Default team 'finance' not found")
+                    team_id = team_row[0]
 
                     # Create entry in `user_management`
                     cur.execute(
-                        "INSERT INTO user_management (id_user, id_role, email, account_type) VALUES (%s, %s, %s, %s)",
-                        (str(new_user_id), str(role_id), user_info.email, 'microsoft')
+                        "INSERT INTO user_management (id_user, id_team, email, account_type) VALUES (%s, %s, %s, %s)",
+                        (str(new_user_id), str(team_id), user_info.email, 'microsoft')
                     )
                 conn.commit()
 

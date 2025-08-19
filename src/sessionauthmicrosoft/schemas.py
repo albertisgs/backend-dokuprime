@@ -22,7 +22,7 @@ class UserManagementOut(BaseModel):
     """Defines the user profile data returned by the universal /me endpoint."""
     id: UUID
     id_user: str
-    id_role: UUID
+    id_team: UUID
     email: str
     account_type: str
 

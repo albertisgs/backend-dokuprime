@@ -15,6 +15,6 @@ class AzureADConfig(BaseSettings):
     REDIRECT_URI: str = f"{BACKEND_URI}{os.getenv('AZURE_AD_REDIRECT_URI', '/api/authazure/callback')}"
     TOKEN_URL: str = f"https://login.microsoftonline.com/{os.getenv('AZURE_AD_TENANT_ID')}/oauth2/v2.0/token"
     AUTHORIZATION_URL: str = f"https://login.microsoftonline.com/{os.getenv('AZURE_AD_TENANT_ID')}/oauth2/v2.0/authorize"
-    DEFAULT_ROLE:str = os.getenv("DEFAULT_USER", "finance")
+    DEFAULT_TEAM:str = os.getenv("DEFAULT_USER", "finance")
 
 config = AzureADConfig()

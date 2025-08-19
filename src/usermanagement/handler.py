@@ -17,25 +17,22 @@ class UserManagementHandler:
         return self.repo.create(data)
 
     def update_user(self, id: str, data: UserManagementUpdate):
-        # Lakukan update seperti biasa
         updated_user = self.repo.update(id, data)
         
-        # --- PERUBAHAN DI SINI ---
-        # Jika update berhasil dan role diubah, kirim notifikasi.
-        if updated_user and data.id_role:
+        # --- CHANGE HERE ---
+        if updated_user and data.id_team:
             email = updated_user.get('email')
             account_type = updated_user.get('account_type')
             
             if email and account_type:
-                # Buat nama channel yang unik untuk pengguna ini
                 channel_name = f"user-updates-{email}-{account_type}"
                 
                 send_pusher_notification(
                     channel=channel_name,
-                    event='role-changed',
-                    data={'message': 'Your user role has been updated by an admin.'}
+                    # --- CHANGE HERE ---
+                    event='team-changed',
+                    data={'message': 'Your team assignment has been updated by an admin.'}
                 )
-
         return updated_user
 
     def delete_user(self, id: str):
@@ -44,11 +41,12 @@ class UserManagementHandler:
     def check_email(self, email:str):
         return self.repo.check(email)
 
-    def list_roles(self):
-        return self.repo.list_roles()
+     # --- CHANGE HERE ---
+    def list_teams(self):
+        return self.repo.list_teams()
     
-    def get_role(self, role_id: str):
-        role = self.repo.get_role_by_id(role_id)
-        if not role:
-            raise HTTPException(status_code=404, detail="Role not found")
-        return role
+    def get_team(self, team_id: str):
+        team = self.repo.get_team_by_id(team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+        return team
