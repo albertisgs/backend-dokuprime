@@ -2,7 +2,7 @@ import psycopg2
 import os
 from typing import List, Optional
 from uuid import UUID
-from .schemas import RoleCreate, RoleUpdate
+from .schemas import RoleCreate
 from psycopg2.extras import execute_values
 
 class RoleRepository:
@@ -24,12 +24,15 @@ class RoleRepository:
         columns = [desc[0] for desc in cursor.description]
         return dict(zip(columns, row))
 
-    def get_all(self) -> List[dict]:
+    # --- PERUBAHAN ---
+    # Menambahkan filter berdasarkan team_id
+    def get_all(self, team_id: UUID = None) -> List[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute("""
-                SELECT r.id, r.name, r.description,
+            # Query dasar
+            query = """
+                SELECT r.id, r.name, r.description, r.id_team,
                     COALESCE(
                         (SELECT json_agg(json_build_object('id', p.id, 'name', p.name))
                          FROM permissions p
@@ -38,8 +41,16 @@ class RoleRepository:
                         '[]'::json
                     ) as permissions
                 FROM roles r
-                ORDER BY r.name;
-            """)
+            """
+            params = []
+            # Jika team_id diberikan, tambahkan WHERE clause
+            if team_id:
+                query += " WHERE r.id_team = %s"
+                params.append(str(team_id))
+            
+            query += " ORDER BY r.name;"
+            
+            cur.execute(query, tuple(params))
             rows = cur.fetchall()
             columns = [desc[0] for desc in cur.description]
             return [dict(zip(columns, row)) for row in rows]
@@ -47,22 +58,43 @@ class RoleRepository:
             cur.close()
             conn.close()
 
+    # --- PERUBAHAN ---
+    # Metode ini sekarang mengambil id_team
     def get_by_id(self, role_id: UUID) -> Optional[dict]:
-        # Implementasi get_by_id mirip dengan get_all dengan WHERE clause
-        # (Dapat ditambahkan jika diperlukan)
-        pass
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT id, name, description, id_team FROM roles WHERE id = %s", (str(role_id),))
+            return self._map_row_to_dict(cur.fetchone(), cur)
+        finally:
+            cur.close()
+            conn.close()
 
-    def create(self, role_data: RoleCreate) -> dict:
+    # --- BARU ---
+    # Metode untuk memeriksa duplikasi nama role dalam satu tim
+    def get_by_name_and_team(self, name: str, team_id: UUID) -> Optional[dict]:
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT id FROM roles WHERE name = %s AND id_team = %s", (name, str(team_id)))
+            return self._map_row_to_dict(cur.fetchone(), cur)
+        finally:
+            cur.close()
+            conn.close()
+
+    # --- PERUBAHAN ---
+    # Menyimpan id_team saat membuat role baru
+    def create(self, role_data: RoleCreate, team_id: UUID) -> dict:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO roles (name, description) VALUES (%s, %s) RETURNING id, name, description",
-                (role_data.name, role_data.description)
+                "INSERT INTO roles (name, description, id_team) VALUES (%s, %s, %s) RETURNING id, name, description, id_team",
+                (role_data.name, role_data.description, str(team_id))
             )
             new_role = self._map_row_to_dict(cur.fetchone(), cur)
             conn.commit()
-            new_role['permissions'] = [] # Role baru belum punya permission
+            new_role['permissions'] = []
             return new_role
         finally:
             cur.close()
@@ -108,37 +140,25 @@ class RoleRepository:
             cur.close()
             conn.close()
 
-     # --- TAMBAHKAN METODE BARU DI BAWAH INI ---
     def set_permissions_for_role(self, role_id: UUID, permission_ids: List[int]):
-        """
-        Mengatur/mengganti semua permission untuk sebuah role.
-        Pertama, hapus semua permission yang ada, lalu masukkan yang baru.
-        """
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            # 1. Hapus semua permission yang ada untuk role ini
             cur.execute(
                 "DELETE FROM role_permissions WHERE role_id = %s",
                 (str(role_id),)
             )
-
-            # 2. Jika daftar permission tidak kosong, masukkan semua yang baru
             if permission_ids:
-                # Siapkan data untuk bulk insert: [(role_id, pid1), (role_id, pid2), ...]
                 args_list = [(str(role_id), pid) for pid in permission_ids]
-                
-                # Gunakan execute_values untuk bulk insert yang efisien
                 execute_values(
                     cur,
                     "INSERT INTO role_permissions (role_id, permission_id) VALUES %s ON CONFLICT DO NOTHING",
                     args_list
                 )
-
             conn.commit()
         except Exception as e:
             conn.rollback()
-            raise e # Lemparkan error agar bisa ditangani di atasnya
+            raise e
         finally:
             cur.close()
             conn.close()

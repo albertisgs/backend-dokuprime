@@ -7,7 +7,7 @@ __pycache__/
 
 .venv/
 
-.env
+*.env
 
 
 # Exclude annual reports and legal docs
