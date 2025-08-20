@@ -60,7 +60,7 @@ class TeamRepository:
             # Konversi list Python menjadi string JSON untuk disimpan di DB
             access_json = json.dumps(team_data.access)
             cur.execute(
-                "INSERT INTO team (name, access) VALUES (%s, %s) RETURNING id, name, access",
+                "INSERT INTO teams (name, access) VALUES (%s, %s) RETURNING id, name, access",
                 (team_data.name, access_json)
             )
             new_team = self._map_row_to_dict(cur.fetchone(), cur)

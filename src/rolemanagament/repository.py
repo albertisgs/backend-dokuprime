@@ -24,13 +24,10 @@ class RoleRepository:
         columns = [desc[0] for desc in cursor.description]
         return dict(zip(columns, row))
 
-    # --- PERUBAHAN ---
-    # Menambahkan filter berdasarkan team_id
     def get_all(self, team_id: UUID = None) -> List[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            # Query dasar
             query = """
                 SELECT r.id, r.name, r.description, r.id_team,
                     COALESCE(
@@ -43,7 +40,6 @@ class RoleRepository:
                 FROM roles r
             """
             params = []
-            # Jika team_id diberikan, tambahkan WHERE clause
             if team_id:
                 query += " WHERE r.id_team = %s"
                 params.append(str(team_id))
@@ -58,8 +54,6 @@ class RoleRepository:
             cur.close()
             conn.close()
 
-    # --- PERUBAHAN ---
-    # Metode ini sekarang mengambil id_team
     def get_by_id(self, role_id: UUID) -> Optional[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
@@ -70,8 +64,6 @@ class RoleRepository:
             cur.close()
             conn.close()
 
-    # --- BARU ---
-    # Metode untuk memeriksa duplikasi nama role dalam satu tim
     def get_by_name_and_team(self, name: str, team_id: UUID) -> Optional[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
@@ -82,8 +74,6 @@ class RoleRepository:
             cur.close()
             conn.close()
 
-    # --- PERUBAHAN ---
-    # Menyimpan id_team saat membuat role baru
     def create(self, role_data: RoleCreate, team_id: UUID) -> dict:
         conn = self._get_connection()
         cur = conn.cursor()
@@ -100,30 +90,34 @@ class RoleRepository:
             cur.close()
             conn.close()
 
-    def add_permission_to_role(self, role_id: UUID, permission_id: int):
+    # --- FUNGSI BARU YANG DITAMBAHKAN ---
+    def delete(self, role_id: UUID) -> bool:
+        """Menghapus sebuah role berdasarkan ID."""
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute(
-                "INSERT INTO role_permissions (role_id, permission_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-                (str(role_id), permission_id)
-            )
+            # Hapus juga relasinya di role_permissions terlebih dahulu
+            cur.execute("DELETE FROM role_permissions WHERE role_id = %s", (str(role_id),))
+            # Baru hapus role-nya
+            cur.execute("DELETE FROM roles WHERE id = %s", (str(role_id),))
             conn.commit()
             return cur.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             cur.close()
             conn.close()
 
-    def remove_permission_from_role(self, role_id: UUID, permission_id: int):
+    # --- FUNGSI BARU YANG DITAMBAHKAN ---
+    def get_user_count_for_role(self, role_id: UUID) -> int:
+        """Menghitung berapa banyak user yang menggunakan role ini."""
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute(
-                "DELETE FROM role_permissions WHERE role_id = %s AND permission_id = %s",
-                (str(role_id), permission_id)
-            )
-            conn.commit()
-            return cur.rowcount > 0
+            cur.execute("SELECT COUNT(*) FROM user_management WHERE id_role = %s", (str(role_id),))
+            count = cur.fetchone()[0]
+            return count
         finally:
             cur.close()
             conn.close()
@@ -144,10 +138,7 @@ class RoleRepository:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute(
-                "DELETE FROM role_permissions WHERE role_id = %s",
-                (str(role_id),)
-            )
+            cur.execute("DELETE FROM role_permissions WHERE role_id = %s", (str(role_id),))
             if permission_ids:
                 args_list = [(str(role_id), pid) for pid in permission_ids]
                 execute_values(
@@ -159,6 +150,61 @@ class RoleRepository:
         except Exception as e:
             conn.rollback()
             raise e
+        finally:
+            cur.close()
+            conn.close()
+
+    def update(self, role_id: UUID, role_data: dict) -> bool:
+        """Memperbarui nama dan/atau deskripsi sebuah role."""
+        if not role_data:
+            return True # Tidak ada yang diupdate, anggap berhasil
+
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            # Bangun query UPDATE secara dinamis
+            set_clause = ", ".join([f"{key} = %s" for key in role_data.keys()])
+            values = list(role_data.values())
+            values.append(str(role_id))
+
+            query = f"UPDATE roles SET {set_clause} WHERE id = %s"
+            
+            cur.execute(query, tuple(values))
+            conn.commit()
+            return cur.rowcount > 0
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cur.close()
+            conn.close()
+
+    def get_by_id(self, role_id: UUID) -> Optional[dict]:
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            # Query ini sekarang mengambil semua detail yang dibutuhkan dalam satu kali jalan
+            query = """
+                SELECT r.id, r.name, r.description, r.id_team, t.name as team_name,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object('id', p.id, 'name', p.name))
+                         FROM permissions p
+                         JOIN role_permissions rp ON p.id = rp.permission_id
+                         WHERE rp.role_id = r.id),
+                        '[]'::json
+                    ) as permissions
+                FROM roles r
+                LEFT JOIN teams t ON r.id_team = t.id
+                WHERE r.id = %s
+            """
+            cur.execute(query, (str(role_id),))
+            
+            row = cur.fetchone()
+            if not row:
+                return None
+            
+            columns = [desc[0] for desc in cur.description]
+            return dict(zip(columns, row))
         finally:
             cur.close()
             conn.close()
