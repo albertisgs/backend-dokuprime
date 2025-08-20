@@ -78,3 +78,8 @@ def update_role_and_permissions(role_id: UUID, data: RoleUpdate, current_user: d
     is_super_admin = str(team_id) == SUPERADMIN_TEAM_ID
     team_id_to_check = None if is_super_admin else team_id
     return handler.update_role(role_id, data, team_id=team_id_to_check)
+
+@router.get("/permissions/by-team/{team_id}", response_model=List[PermissionOut])
+def get_available_permissions_for_team(team_id: UUID, current_user: dict = Depends(get_current_user_profile)):
+    """Mengambil daftar permission yang relevan untuk sebuah tim spesifik."""
+    return handler.get_filtered_permissions_for_team(team_id)

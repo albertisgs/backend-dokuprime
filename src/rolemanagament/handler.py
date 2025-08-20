@@ -104,3 +104,26 @@ class RoleHandler:
             raise HTTPException(status_code=404, detail="Role not found in your team.")
             
         return role
+    
+    def get_filtered_permissions_for_team(self, team_id: UUID):
+        """Mengembalikan daftar permissions yang sudah difilter berdasarkan hak akses tim."""
+        team_access_rights = self.repo.get_team_access_rights(team_id)
+        all_permissions = self.repo.get_all_permissions()
+
+        if not team_access_rights:
+            # Jika tim tidak punya hak akses sama sekali, kembalikan array kosong
+            return []
+
+        # Filter permissions: hanya kembalikan permission yang nama modulnya
+        # ada di dalam daftar team_access_rights.
+        filtered_permissions = [
+            p for p in all_permissions 
+            if p['name'].split(':')[0] in team_access_rights
+        ]
+        
+        return filtered_permissions
+
+    def get_roles_by_team(self, team_id: UUID):
+        """Mengembalikan daftar roles yang dimiliki oleh sebuah tim spesifik."""
+        # Kita bisa gunakan ulang fungsi get_all_roles dengan filter team_id
+        return self.get_all_roles(team_id=team_id)

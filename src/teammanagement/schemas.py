@@ -23,8 +23,7 @@ class TeamOut(TeamBase):
 
     class Config:
         from_attributes = True
-
-
+        
 # Skema baru untuk respon jumlah pengguna
 class TeamUserCountOut(BaseModel):
     team_id: UUID

@@ -110,33 +110,30 @@ class UserManagementRepository:
     def update(self, id: str, data: UserManagementUpdate) -> Optional[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
+        
+        # Gunakan exclude_unset=True untuk hanya mendapatkan field yang dikirim oleh client
+        update_data = data.model_dump(exclude_unset=True)
+
+        # Jika tidak ada data yang dikirim, langsung kembalikan data user saat ini
+        if not update_data:
+            return self.get_by_id(id)
+
         try:
-            fields = []
-            values = []
-            if data.id_user is not None:
-                fields.append("id_user = %s")
-                values.append(data.id_user)
-            if data.id_team:
-                fields.append("id_team = %s")
-                values.append(data.id_team)
-            if data.id_role is not None:
-                fields.append("id_role = %s")
-                values.append(data.id_role)
-            if data.account_type:
-                fields.append("account_type = %s")
-                values.append(data.account_type)
+            # Bangun query SET secara dinamis dari data yang dikirim
+            fields = [f"{key} = %s" for key in update_data.keys()]
+            values = list(update_data.values())
+            values.append(id) # Tambahkan ID user untuk klausa WHERE
 
-            if not fields:
-                return self.get_by_id(id)
-
-            values.append(id)
             query = f"UPDATE user_management SET {', '.join(fields)} WHERE id = %s RETURNING *"
+            
             cur.execute(query, tuple(values))
             row = cur.fetchone()
+            
             if row:
                 columns = [desc[0] for desc in cur.description]
                 conn.commit()
                 return dict(zip(columns, row))
+            
             return None
         except Exception as e:
             conn.rollback()
@@ -208,6 +205,22 @@ class UserManagementRepository:
                 columns = [desc[0] for desc in cur.description]
                 return dict(zip(columns, row))
             return None
+        finally:
+            cur.close()
+            conn.close()
+
+    def get_roles_by_team_id(self, team_id: UUID) -> List[dict]:
+        """Mengambil semua role yang dimiliki oleh sebuah tim."""
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "SELECT id, name FROM roles WHERE id_team = %s ORDER BY name",
+                (str(team_id),)
+            )
+            rows = cur.fetchall()
+            columns = [desc[0] for desc in cur.description]
+            return [dict(zip(columns, row)) for row in rows]
         finally:
             cur.close()
             conn.close()

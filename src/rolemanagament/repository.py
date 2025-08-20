@@ -208,3 +208,20 @@ class RoleRepository:
         finally:
             cur.close()
             conn.close()
+
+    # --- TAMBAHKAN FUNGSI BARU INI ---
+    def get_team_access_rights(self, team_id: UUID) -> List[str]:
+        """Mengambil daftar access (modul) yang dimiliki oleh sebuah tim."""
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT access FROM teams WHERE id = %s", (str(team_id),))
+            result = cur.fetchone()
+            if result and result[0]:
+                # Akses disimpan sebagai JSON, jadi kita perlu load
+                import json
+                return json.loads(result[0])
+            return []
+        finally:
+            cur.close()
+            conn.close()

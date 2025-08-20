@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 from .schemas import UserManagementCreate, UserManagementUpdate, UserManagementOut, userCheckemail, TeamOut, TeamName
+from ..rolemanagament.schemas import RoleOut
 from .handler import UserManagementHandler
 from typing import List
 from uuid import UUID
@@ -96,6 +97,11 @@ def delete_user_in_team(user_management_id: str, current_user: dict = Depends(ge
     if not success:
         raise HTTPException(status_code=404, detail="User not found or not in your team")
     return {"status": "deleted"}
+
+@router.get("/roles/by-team/{team_id}", response_model=List[RoleOut])
+def get_roles_for_a_team(team_id: UUID):
+    """(User Management) Mengambil daftar role yang tersedia untuk sebuah tim."""
+    return handler.get_roles_for_team(team_id)
 
 # --- Public and Authenticated Routes (No Change) ---
 

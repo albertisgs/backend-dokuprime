@@ -31,19 +31,34 @@ class UserManagementHandler:
     # --- PERUBAHAN ---
     # Menambahkan parameter opsional team_id
     def update_user(self, id: str, data: UserManagementUpdate, team_id: UUID = None):
-        # Verifikasi bahwa user yang akan diupdate ada di dalam tim (jika diakses oleh Admin Tim)
-        if team_id:
-            user_to_update = self.repo.get_by_id(id, team_id)
-            if not user_to_update:
-                return None # Akan menghasilkan 404 di routes
+        # Ambil data pengguna saat ini sebelum melakukan perubahan apa pun
+        user_to_update = self.repo.get_by_id(id, team_id)
+        if not user_to_update:
+            return None # Akan menghasilkan 404 di routes
 
+        # --- BLOK LOGIKA PENJAGAAN BARU ---
+        # Cek apakah ada upaya untuk mengubah tim
+        if data.id_team and str(data.id_team) != str(user_to_update.get('id_team')):
+            current_role_id = user_to_update.get('id_role')
+            
+            # Cek apakah pengguna saat ini memiliki role
+            if current_role_id:
+                # Periksa apakah permintaan update juga sekaligus menghapus role
+                # `exclude_unset=True` penting untuk tahu field apa saja yang dikirim client
+                update_fields = data.model_dump(exclude_unset=True)
+                is_role_being_removed = 'id_role' in update_fields and update_fields['id_role'] is None
+
+                # Jika role tidak sedang dihapus, lakukan validasi
+                if not is_role_being_removed:
+                    raise HTTPException(
+                        status_code=400, # Bad Request
+                        detail="Cannot change team while user is assigned to a role. Please unassign the role first, then change the team."
+                    )
+        
         # Cek jika role diubah, pastikan role baru milik tim yang benar
         if data.id_role:
-            # Dapatkan tim dari user yang akan diupdate
-            target_user = self.repo.get_by_id(id) # get user tanpa filter tim
-            if not target_user:
-                raise HTTPException(status_code=404, detail="User to update not found.")
-            target_team_id = target_user.get('id_team')
+            # Tentukan tim target (tim baru jika diubah, atau tim saat ini jika tidak)
+            target_team_id = data.id_team or user_to_update.get('id_team')
             
             role = self.repo.get_role_by_id(data.id_role)
             if not role or str(role.get('id_team')) != str(target_team_id):
@@ -97,3 +112,10 @@ class UserManagementHandler:
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
         return team
+
+    def get_roles_for_team(self, team_id: UUID):
+        """Handler untuk mengambil roles berdasarkan team_id."""
+        roles = self.repo.get_roles_by_team_id(team_id)
+        if not roles:
+            return []
+        return roles

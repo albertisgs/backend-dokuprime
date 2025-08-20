@@ -26,7 +26,8 @@ class UserManagementOut(UserManagementBase):
     # --- CHANGE HERE ---
     team_name: str | None = None
     id_role: str | None = None  
-
+    role_name: str | None = None
+    
 class userCheckemail(BaseModel):
     email:str
     id_user: str | None = None
