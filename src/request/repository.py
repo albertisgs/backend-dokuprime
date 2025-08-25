@@ -1,3 +1,5 @@
+# src/request/repository.py
+
 import os
 from dotenv import load_dotenv
 import psycopg2
@@ -10,7 +12,17 @@ class RequestRepository:
         self.password = os.getenv("DB_PASSWORD")
         self.db_name = os.getenv("DB_NAME")
         self.port = os.getenv("DB_PORT")
-        print("Repo Initiated!")
+        print("Request Repository Initialized!")
+
+    def _get_connection(self):
+        """Membuat dan mengembalikan koneksi database baru."""
+        return psycopg2.connect(
+            dbname=self.db_name,
+            user=self.user,
+            password=self.password,
+            host="localhost",
+            port=self.port
+        )
 
     async def addPromptRepo(
             self,
@@ -21,84 +33,104 @@ class RequestRepository:
             reason: str,
             prompt: str
         ):
-        print("Adding new prompt into database...")
-
-        with psycopg2.connect(
-            dbname=self.db_name,
-            user=self.user,
-            password=self.password,
-            host="localhost",
-            port=self.port,
-            options='-c timezone=Asia/Jakarta'
-        ) as conn:
+        conn = self._get_connection()
+        try:
             with conn.cursor() as cursor:
-                cursor.execute(f"""
-                    INSERT into user_requests (
-                        usecase_name, priority, user_request, team, reason, prompt
-                    )
-                    VALUES
-                    ('{usecase_name}', '{priority}', '{user_request}', '{team}', '{reason}', '{prompt}');
-                """)
+                # Menggunakan parameterized query untuk keamanan
+                sql = """
+                    INSERT INTO user_requests 
+                    (usecase_name, priority, user_request, team, reason, prompt)
+                    VALUES (%s, %s, %s, %s, %s, %s);
+                """
+                cursor.execute(sql, (usecase_name, priority, user_request, team, reason, prompt))
                 conn.commit()
-
+        finally:
+            conn.close()
         print("New prompt successfully added")
 
-    async def getRequestRepo(self):
+    async def getRequestRepo(self, team_name: str = None):
         print("Fetching requests from database...")
-
-        conn = psycopg2.connect(
-            dbname=self.db_name,
-            user=self.user,
-            password=self.password,
-            host="localhost",
-            port=self.port
-        )
-        cur = conn.cursor()
-
-        sql = f"""
-            SELECT *
-            FROM user_requests
-            ORDER BY request_date DESC
-        """
-
-        cur.execute(sql)
-
-        columns = [desc[0] for desc in cur.description]
-        rows = cur.fetchall()
-
-        data = [dict(zip(columns, row)) for row in rows]
-
-        cur.close()
-        conn.close()
-
-        print("Requests fetched successfully")
-        return data
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                sql = "SELECT * FROM user_requests"
+                params = []
+                
+                if team_name:
+                    sql += " WHERE team = %s"
+                    params.append(team_name)
+                    
+                sql += " ORDER BY request_date DESC"
+                cur.execute(sql, tuple(params))
+                
+                columns = [desc[0] for desc in cur.description]
+                rows = cur.fetchall()
+                data = [dict(zip(columns, row)) for row in rows]
+                return data
+        finally:
+            conn.close()
 
     async def getRequestByIdRepo(self, id: int):
-        print("Fetching requests from database...")
+        print(f"Fetching request by id {id}...")
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                sql = "SELECT * FROM user_requests WHERE id = %s"
+                cur.execute(sql, (id,))
+                row = cur.fetchone()
+                if row:
+                    colnames = [desc[0] for desc in cur.description]
+                    return dict(zip(colnames, row))
+                return None
+        finally:
+            conn.close()
 
-        conn = psycopg2.connect(
-            dbname=self.db_name,
-            user=self.user,
-            password=self.password,
-            host="localhost",
-            port=self.port
-        )
-        cur = conn.cursor()
+    async def updatePromptRepo(self, id: int, data: dict):
+        print(f"Updating prompt with id {id}...")
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                fields = [f"{key} = %s" for key in data.keys()]
+                values = list(data.values())
+                values.append(id)
+                
+                sql = f"UPDATE user_requests SET {', '.join(fields)} WHERE id = %s RETURNING *;"
+                cur.execute(sql, tuple(values))
+                
+                updated_row = cur.fetchone()
+                conn.commit()
+                
+                if updated_row:
+                    colnames = [desc[0] for desc in cur.description]
+                    return dict(zip(colnames, updated_row))
+                return None
+        finally:
+            conn.close()
 
-        sql = f"""
-            SELECT *
-            FROM user_requests
-            WHERE id = {id}
-        """
+    async def deletePromptRepo(self, id: int):
+        print(f"Deleting prompt with id {id}...")
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM user_requests WHERE id = %s;", (id,))
+                conn.commit()
+                return cur.rowcount > 0
+        finally:
+            conn.close()
 
-        cur.execute(sql)
-
-        rows = cur.fetchone()
-        colnames = [desc[0] for desc in cur.description]
-        cur.close()
-        conn.close()
-
-        print("Requests fetched successfully")
-        return dict(zip(colnames, rows))
-    
+    async def updateStatusRepo(self, id: int, status: str):
+        print(f"Updating status for prompt id {id} to {status}...")
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                sql = "UPDATE user_requests SET status = %s WHERE id = %s RETURNING *;"
+                cur.execute(sql, (status, id))
+                updated_row = cur.fetchone()
+                conn.commit()
+                
+                if updated_row:
+                    colnames = [desc[0] for desc in cur.description]
+                    return dict(zip(colnames, updated_row))
+                return None
+        finally:
+            conn.close()

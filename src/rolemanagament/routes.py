@@ -8,7 +8,7 @@ from ..utils.sessiondependencies import get_current_user_profile
 
 router = APIRouter(
     tags=["Role Management"],
-    dependencies=[Depends(require_permission("rolemanagement:master"))]
+    dependencies=[Depends(require_permission("role-management:master"))]
 )
 superadmin_router = APIRouter(
     tags=["Role Management (Superadmin)"],

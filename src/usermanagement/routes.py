@@ -12,7 +12,7 @@ from ..utils.sessiondependencies import get_current_user_profile
 # Router ini sekarang untuk Admin Tim (dibatasi per tim)
 router = APIRouter(
     tags=["User Management"],
-    dependencies=[Depends(require_permission("usermanagement:master"))]
+    dependencies=[Depends(require_permission("user-management:master"))]
 )
 
 # Router terpisah HANYA untuk Superadmin (akses global)
@@ -67,9 +67,13 @@ def create_user_in_team(data: UserManagementCreate, current_user: dict = Depends
     team_id = current_user.get("id_team")
     is_super_admin = str(team_id) == SUPERADMIN_TEAM_ID
     
-    # Admin tim hanya bisa membuat user di timnya sendiri
-    if not is_super_admin and str(data.id_team) != str(team_id):
+    # --- PENJAGAAN BARU DITAMBAHKAN DI SINI ---
+    if not is_super_admin:
+        data.id_team = team_id
+    elif str(data.id_team) != str(team_id) and not is_super_admin:
+        # Pengecekan ini tetap relevan sebagai lapisan keamanan tambahan
         raise HTTPException(status_code=403, detail="Cannot create user for another team.")
+        
     return handler.create_user(data)
 
 @router.put("/{user_management_id}", response_model=UserManagementOut)
@@ -116,3 +120,5 @@ def get_teams_list():
 @authenticated_router.get("/teams/{team_id}", response_model=TeamName)
 def get_team_by_id(team_id: str):
     return handler.get_team(team_id)
+
+

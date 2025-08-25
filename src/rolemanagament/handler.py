@@ -5,6 +5,7 @@ from uuid import UUID
 from .repository import RoleRepository
 from .schemas import RoleCreate, RoleUpdate
 from typing import List
+from src.utils.pusher import send_pusher_notification
 
 class RoleHandler:
     def __init__(self):
@@ -47,7 +48,15 @@ class RoleHandler:
             
         try:
             self.repo.set_permissions_for_role(role_id, permission_ids)
-            return {"status": "success", "message": "Permissions for the role have been updated."}
+            if role and role.get('id_team'):
+                team_channel = f"team-updates-{role.get('id_team')}"
+                send_pusher_notification(
+                    channel=team_channel,
+                    event='permissions-changed',
+                    data={'message': f"Permissions for role '{role.get('name')}' have changed."}
+                )
+
+            return {"status": "success", "message": "Permissions updated."}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Database error: {e}")
 

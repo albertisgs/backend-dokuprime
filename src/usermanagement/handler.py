@@ -77,6 +77,19 @@ class UserManagementHandler:
                     event='team-changed',
                     data={'message': 'Your team assignment has been updated by an admin.'}
                 )
+        
+        if updated_user and 'id_role' in data.model_dump(exclude_unset=True):
+            email = updated_user.get('email')
+            account_type = updated_user.get('account_type') # Diperlukan untuk channel yang unik
+            
+            if email and account_type:
+                channel_name = f"user-updates-{email}-{account_type}"
+                send_pusher_notification(
+                    channel=channel_name,
+                    event='role-changed',
+                    data={'message': 'Your role or permissions have been updated by an admin.'}
+                )
+        
         return updated_user
 
     # --- PERUBAHAN ---
