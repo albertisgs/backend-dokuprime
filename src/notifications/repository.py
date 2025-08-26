@@ -47,6 +47,39 @@ class NotificationRepository:
             cur.close()
             conn.close()
 
+    def get_target_users(self, target_type: str, target_id: UUID = None) -> List[dict]:
+        """Mengambil daftar pengguna target (ID dan email)."""
+        conn = self._get_connection()
+        cur = conn.cursor()
+        query = ""
+        params = ()
+        
+        target_id_str = str(target_id) if target_id else None
+
+        if target_type == 'all':
+            query = "SELECT id, email FROM users;"
+        elif target_type == 'team' and target_id_str:
+            # Mengambil email langsung dari user_management
+            query = "SELECT id_user::uuid as id, email FROM user_management WHERE id_team = %s;"
+            params = (target_id_str,)
+        elif target_type == 'user' and target_id_str:
+            query = "SELECT id, email FROM users WHERE id = %s;"
+            params = (target_id_str,)
+        
+        if not query:
+            cur.close()
+            conn.close()
+            return []
+
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        columns = [desc[0] for desc in cur.description]
+        users = [dict(zip(columns, row)) for row in rows]
+        
+        cur.close()
+        conn.close()
+        return users
+
 
     def get_target_user_ids(self, target_type: str, target_id: UUID = None) -> List[UUID]:
         conn = self._get_connection()

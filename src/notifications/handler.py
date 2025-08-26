@@ -19,19 +19,26 @@ class NotificationHandler:
 
         notif_data = data.model_dump()
         new_notif = self.repo.create_notification(notif_data, creator_id, creator_type)
+          # 1. Dapatkan daftar objek user (id dan email)
+        target_users = self.repo.get_target_users(data.target_type, data.target_id)
         
-        target_user_ids = self.repo.get_target_user_ids(data.target_type, data.target_id)
-        self.repo.link_notification_to_users(new_notif['id'], target_user_ids)
+        # 2. Ekstrak hanya user_id untuk menautkan notifikasi di database
+        if target_users:
+            target_user_ids = [user['id'] for user in target_users]
+            self.repo.link_notification_to_users(new_notif['id'], target_user_ids)
 
-        for user_id in target_user_ids:
-            channel_name = f"private-notifications-{user_id}"
+        # 3. Lakukan iterasi pada daftar objek user untuk mengirim notifikasi Pusher
+        for user in target_users:
+            # Gunakan email pengguna untuk nama channel
+            channel_name = f"notifications-{user['email']}"
             send_pusher_notification(
                 channel=channel_name,
                 event='new-notification',
                 data={'title': data.title, 'message': data.message}
             )
         
-        return {"status": "success", "message": f"Notification sent to {len(target_user_ids)} user(s)."}
+        return {"status": "success", "message": f"Notification sent to {len(target_users)} user(s)."}
+        
         
     # UBAH FUNGSI INI
     def get_user_notifications(self, user_id: UUID, limit: int, offset: int):

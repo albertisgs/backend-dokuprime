@@ -45,7 +45,7 @@ class RoleHandler:
             raise HTTPException(status_code=404, detail="Role not found in your team.")
         elif not role:
             raise HTTPException(status_code=404, detail="Role not found.")
-            
+        print("hit")
         try:
             self.repo.set_permissions_for_role(role_id, permission_ids)
             if role and role.get('id_team'):
@@ -83,6 +83,7 @@ class RoleHandler:
 
     def update_role(self, role_id: UUID, data: RoleUpdate, team_id: UUID = None):
         role = self.repo.get_by_id(role_id)
+        print("hit update_role")
         if team_id and (not role or str(role.get('id_team')) != str(team_id)):
             raise HTTPException(status_code=404, detail="Role not found in your team.")
         elif not role:
@@ -99,7 +100,21 @@ class RoleHandler:
         if data.permission_ids is not None:
             self.repo.set_permissions_for_role(role_id, data.permission_ids)
         # <-- BAGIAN KUNCI: Selalu kembalikan dictionary ini
-        return {"status": "success", "message": "Role has been updated successfully."}
+
+        try:
+            print(role)
+            if role and role.get('id'):
+                role_channel = f"role-updates-{role.get('id')}"
+                send_pusher_notification(
+                    channel=role_channel,
+                    event='permissions-changed',
+                    data={'message': f"Permissions for role '{role.get('name')}' have changed."}
+                )
+
+            return {"status": "success", "message": "Role has been updated successfully."}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        
     
     # --- TAMBAHKAN FUNGSI BARU INI ---
     def get_role_by_id(self, role_id: UUID, team_id: UUID = None):

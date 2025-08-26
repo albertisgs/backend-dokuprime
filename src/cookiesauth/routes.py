@@ -51,7 +51,6 @@ class AuthCookiesRoutes:
             Returns the profile of the currently logged-in user.
             Requires a valid session cookie.
             """
-            print(current_user)
             return current_user
 
         @self.router.get("/verify-me", response_model=StatusResponse)
