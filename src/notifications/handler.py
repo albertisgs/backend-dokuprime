@@ -53,3 +53,10 @@ class NotificationHandler:
     def mark_one_notification_as_read(self, user_id: UUID, notification_id: UUID):
         updated = self.repo.mark_as_read(user_id, notification_id)
         return {"status": "success", "updated": updated}
+    
+    def dismiss_notification(self, user_id: UUID, user_notification_id: UUID):
+        """Menghapus satu notifikasi untuk seorang pengguna."""
+        deleted = self.repo.delete_user_notification(user_id, user_notification_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Notification not found for this user.")
+        return {"status": "success", "message": "Notification dismissed."}

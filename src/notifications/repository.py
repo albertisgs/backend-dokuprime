@@ -192,3 +192,21 @@ class NotificationRepository:
         finally:
             cur.close()
             conn.close()
+
+    def delete_user_notification(self, user_id: UUID, user_notification_id: UUID) -> bool:
+        """Menghapus satu entri user_notification spesifik."""
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                """
+                DELETE FROM user_notifications
+                WHERE user_id = %s AND id = %s
+                """,
+                (str(user_id), str(user_notification_id))
+            )
+            conn.commit()
+            return cur.rowcount > 0 # Return True jika ada baris yang terhapus
+        finally:
+            cur.close()
+            conn.close()

@@ -39,6 +39,11 @@ def mark_all_as_read(current_user: dict = Depends(get_current_user_profile)):
     user_id = current_user.get("id")
     return handler.mark_all_user_notifications_as_read(user_id)
 
+@router.delete("/{user_notification_id}", status_code=200)
+def dismiss_one_notification(user_notification_id: UUID,current_user: dict = Depends(get_current_user_profile)):
+    user_id = current_user.get("id")
+    return handler.dismiss_notification(user_id, user_notification_id)
+
 # Tambahkan endpoint baru ini di dalam router
 @router.post("/{notification_id}/read", status_code=200)
 def mark_one_as_read(
