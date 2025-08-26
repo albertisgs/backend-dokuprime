@@ -3,6 +3,7 @@
 import os
 from dotenv import load_dotenv
 import psycopg2
+from uuid import UUID
 
 load_dotenv()
 
@@ -31,18 +32,19 @@ class RequestRepository:
             user_request: str,
             team: str,
             reason: str,
-            prompt: str
+            prompt: str,
+            creator_id: UUID # <-- Tambahkan parameter creator_id
         ):
         conn = self._get_connection()
         try:
             with conn.cursor() as cursor:
-                # Menggunakan parameterized query untuk keamanan
                 sql = """
                     INSERT INTO user_requests 
-                    (usecase_name, priority, user_request, team, reason, prompt)
-                    VALUES (%s, %s, %s, %s, %s, %s);
+                    (usecase_name, priority, user_request, team, reason, prompt, creator_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s);
                 """
-                cursor.execute(sql, (usecase_name, priority, user_request, team, reason, prompt))
+                # Tambahkan creator_id ke tuple values
+                cursor.execute(sql, (usecase_name, priority, user_request, team, reason, prompt, creator_id))
                 conn.commit()
         finally:
             conn.close()

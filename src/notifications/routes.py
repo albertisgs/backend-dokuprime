@@ -4,7 +4,7 @@ from .handler import NotificationHandler
 from .schemas import NotificationCreate, NotificationListResponse
 from ..utils.sessiondependencies import get_current_user_profile
 from ..utils.dependecies import require_permission # Atau superadmin, sesuai kebutuhan
-
+from uuid import UUID
 # Untuk sementara, kita asumsikan hanya superadmin yang bisa mengirim notifikasi
 from ..utils.dependecies import get_current_superadmin
 from fastapi import Query
@@ -39,6 +39,15 @@ def mark_all_as_read(current_user: dict = Depends(get_current_user_profile)):
     user_id = current_user.get("id")
     return handler.mark_all_user_notifications_as_read(user_id)
 
+# Tambahkan endpoint baru ini di dalam router
+@router.post("/{notification_id}/read", status_code=200)
+def mark_one_as_read(
+    notification_id: UUID,
+    current_user: dict = Depends(get_current_user_profile)
+):
+    user_id = current_user.get("id")
+    return handler.mark_one_notification_as_read(user_id, notification_id)
+
 # Endpoint untuk admin mengirim notifikasi baru
 @admin_router.post("/")
 def send_notification(data: NotificationCreate, current_user: dict = Depends(get_current_user_profile)):
@@ -49,3 +58,4 @@ def send_notification(data: NotificationCreate, current_user: dict = Depends(get
 def send_system_notification(data: NotificationCreate):
     # Untuk notifikasi sistem, kita tidak memerlukan ID pembuat
     return handler.create_and_dispatch(data, creator_id=None, creator_type='system')
+

@@ -4,18 +4,25 @@ from .repository import RequestRepository
 from fastapi import HTTPException 
 from src.utils.pusher import send_pusher_notification
 
+from src.notifications.handler import NotificationHandler
+from src.notifications.schemas import NotificationCreate
+from src.usermanagement.repository import UserManagementRepository
+
 class RequestHandler:
     def __init__(self):
         self.repo = RequestRepository()
+        self.notification_handler = NotificationHandler() # 2. Inisialisasi handler notifikasi
+        self.user_repo = UserManagementRepository() # 2. Inisialisasi repo user
         print("Handler Initiated")
 
      # --- MODIFIKASI FUNGSI INI ---
     async def addPrompt(self, new_request: dict, current_user: dict):
-        print("Entering addPrompt function")
         # Ambil user_request dan team dari profil pengguna yang login, bukan dari input manual
         user_request_item = current_user.get("username", "Unknown User")
         team_item = current_user.get("team_name", "Unknown Team")
-        
+        creator_id = current_user.get("id")
+        team_id = current_user.get("id_team")
+
         # Ambil data sisa dari payload
         usecase_name_item = new_request["usecase_name"]
         priority_item = new_request["priority"]
@@ -26,11 +33,25 @@ class RequestHandler:
         await self.repo.addPromptRepo(
             usecase_name_item, 
             priority_item, 
-            user_request_item, # Data otomatis
-            team_item,         # Data otomatis
+            user_request_item, 
+            team_item,         
             reason_item, 
-            prompt_item
+            prompt_item,
+            creator_id=creator_id
         )
+
+        manager_ids = self.user_repo.get_manager_ids_by_team(team_id)
+        for manager_id in manager_ids:
+            # Pastikan tidak mengirim notifikasi ke diri sendiri jika pembuat adalah manajer
+            if manager_id != creator_id:
+                notif_data = NotificationCreate(
+                    title="New Prompt Submitted",
+                    message=f"Prompt '{new_request['usecase_name']}' was submitted by {user_request_item}.",
+                    target_type='user',
+                    target_id=manager_id,
+                    link_to="/prompt-management"
+                )
+                self.notification_handler.create_and_dispatch(notif_data, creator_id=creator_id)
 
         print("Exiting addPrompt function")
         return {"status": 200, "message": "Operation Successful!"}
@@ -94,40 +115,50 @@ class RequestHandler:
         return {"status": 200, "message": "Request deleted successfully!"}
 
     # --- FUNGSI BARU ---
-    async def approveRequest(self, id: int):
+    async def approveRequest(self, id: int, current_user: dict):
         print("Entering approveRequest function")
         approved_request = await self.repo.updateStatusRepo(id, "approved")
         if not approved_request:
-            return {"status": 404, "message": "Request not found"}
-        team_name = approved_request.get('team')
-        if team_name:
-            channel = f"prompt-updates-{team_name.replace(' ', '_')}" # Ganti spasi agar nama channel valid
-            send_pusher_notification(
-                channel=channel,
-                event='status-changed',
-                data={
-                    'message': f"Prompt '{approved_request.get('usecase_name')}' has been approved.",
-                    'prompt_id': id
-                }
+            raise HTTPException(status_code=404, detail="Request not found")
+
+        requester_id = approved_request.get('creator_id')
+        manager_id = current_user.get("id")
+
+        # 4. Kirim notifikasi ke pembuat permintaan
+        if requester_id and requester_id != manager_id:
+            notif_data = NotificationCreate(
+                title="Prompt Approved",
+                message=f"Your prompt '{approved_request.get('usecase_name')}' has been approved.",
+                target_type='user',
+                target_id=requester_id,
+                link_to="/prompt-management"
             )
+            # Notifikasi dibuat oleh manager yang melakukan aksi
+            self.notification_handler.create_and_dispatch(notif_data, creator_id=manager_id)
+            
+       
         return {"status": 200, "message": "Request approved!", "data": approved_request}
 
     # --- FUNGSI BARU ---
-    async def rejectRequest(self, id: int):
+    async def rejectRequest(self, id: int, current_user: dict):
         print("Entering rejectRequest function")
         rejected_request = await self.repo.updateStatusRepo(id, "rejected")
         if not rejected_request:
-            return {"status": 404, "message": "Request not found"}
+            raise HTTPException(status_code=404, detail="Request not found")
+
+        requester_id = rejected_request.get('creator_id')
+        manager_id = current_user.get("id")
         
-        team_name = rejected_request.get('team')
-        if team_name:
-            channel = f"prompt-updates-{team_name.replace(' ', '_')}"
-            send_pusher_notification(
-                channel=channel,
-                event='status-changed',
-                data={
-                    'message': f"Prompt '{rejected_request.get('usecase_name')}' has been rejected.",
-                    'prompt_id': id
-                }
+        # 5. Kirim notifikasi ke pembuat permintaan
+        if requester_id and requester_id != manager_id:
+            notif_data = NotificationCreate(
+                title="Prompt Rejected",
+                message=f"Your prompt '{rejected_request.get('usecase_name')}' has been rejected.",
+                target_type='user',
+                target_id=requester_id,
+                link_to="/prompt-management"
             )
+            self.notification_handler.create_and_dispatch(notif_data, creator_id=manager_id)
+
+        
         return {"status": 200, "message": "Request rejected!", "data": rejected_request}

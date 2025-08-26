@@ -41,3 +41,8 @@ class NotificationHandler:
     def mark_all_user_notifications_as_read(self, user_id: UUID):
         updated = self.repo.mark_all_as_read(user_id)
         return {"status": "success", "updated": updated}
+    
+    # Tambahkan fungsi ini di dalam kelas NotificationHandler
+    def mark_one_notification_as_read(self, user_id: UUID, notification_id: UUID):
+        updated = self.repo.mark_as_read(user_id, notification_id)
+        return {"status": "success", "updated": updated}

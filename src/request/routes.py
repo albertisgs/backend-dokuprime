@@ -40,12 +40,14 @@ class RequestRoutes:
         async def deletePrompt(request_id: int):
             return await self.handler.deletePrompt(id=request_id)
             
+        # src/request/routes.py
+# ...
         # --- RUTE BARU: Approve ---
         @self.router.post("/{request_id}/approve", dependencies=[Depends(require_permission("prompt-management:manager"))])
-        async def approveRequest(request_id: int):
-            return await self.handler.approveRequest(id=request_id)
+        async def approveRequest(request_id: int, current_user: dict = Depends(get_current_user_profile)):
+            return await self.handler.approveRequest(id=request_id, current_user=current_user)
             
         # --- RUTE BARU: Reject ---
         @self.router.post("/{request_id}/reject", dependencies=[Depends(require_permission("prompt-management:manager"))])
-        async def rejectRequest(request_id: int):
-            return await self.handler.rejectRequest(id=request_id)
+        async def rejectRequest(request_id: int, current_user: dict = Depends(get_current_user_profile)):
+            return await self.handler.rejectRequest(id=request_id, current_user=current_user)

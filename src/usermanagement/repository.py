@@ -224,3 +224,57 @@ class UserManagementRepository:
         finally:
             cur.close()
             conn.close()
+
+    # TAMBAHKAN FUNGSI BARU INI
+    def get_user_by_username(self, username: str) -> dict | None:
+        """Mengambil data pengguna berdasarkan username dari tabel users."""
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT id FROM users WHERE username = %s", (username,))
+            row = cur.fetchone()
+            if row:
+                return {"id": row[0]}
+            return None
+        finally:
+            cur.close()
+            conn.close()
+
+    # TAMBAHKAN FUNGSI BARU INI
+    def get_manager_ids_by_team(self, team_id: UUID) -> List[UUID]:
+        """Mengambil semua ID pengguna unik dalam satu tim yang memiliki izin manager."""
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            # Tambahkan "DISTINCT" untuk memastikan setiap ID pengguna hanya muncul sekali
+            cur.execute(
+                """
+                SELECT DISTINCT um.id_user::uuid
+                FROM user_management um
+                JOIN roles r ON um.id_role = r.id
+                JOIN role_permissions rp ON r.id = rp.role_id
+                JOIN permissions p ON rp.permission_id = p.id
+                WHERE um.id_team = %s AND p.name LIKE '%%:manager';
+                """,
+                (str(team_id),)
+            )
+            return [row[0] for row in cur.fetchall()]
+        finally:
+            cur.close()
+            conn.close()
+    
+    # Tambahkan fungsi ini di dalam kelas UserManagementRepository
+def get_user_by_id(self, user_id: UUID) -> Optional[dict]:
+    """Mengambil data pengguna dasar dari tabel users berdasarkan ID."""
+    conn = self._get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT id, username FROM users WHERE id = %s", (str(user_id),))
+        row = cur.fetchone()
+        if row:
+            columns = [desc[0] for desc in cur.description]
+            return dict(zip(columns, row))
+        return None
+    finally:
+        cur.close()
+        conn.close()
