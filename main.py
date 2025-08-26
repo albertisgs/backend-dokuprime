@@ -8,6 +8,7 @@ from src.knowledge.routes import KnowledgeRoutes
 from src.cookiesauth.routes import AuthCookiesRoutes
 from src.sessionoauthgoogle.routes import GoogleOAuthCookiesRoutes
 from src.sessionauthmicrosoft.routes import AzureADRCookiesoutes
+from src.notifications.routes import router as notification_router, admin_router as notification_admin_router
 # --- PERUBAHAN ---
 # Mengimpor semua router yang diperlukan
 from src.usermanagement.routes import (
@@ -75,6 +76,10 @@ class SynchronoSyncAPI:
         # Mendaftarkan semua router role management
         self.app.include_router(role_management_router, prefix="/api/roles-management")
         self.app.include_router(role_management_superadmin_router, prefix="/api/roles-management")
+
+        #notifikasi
+        self.app.include_router(notification_router, prefix="/api/notifications")
+        self.app.include_router(notification_admin_router, prefix="/api/notifications/admin")
 
     def run(self):
         uvicorn.run(

@@ -31,64 +31,68 @@ class UserManagementHandler:
     # --- PERUBAHAN ---
     # Menambahkan parameter opsional team_id
     def update_user(self, id: str, data: UserManagementUpdate, team_id: UUID = None):
-        # Ambil data pengguna saat ini sebelum melakukan perubahan apa pun
-        user_to_update = self.repo.get_by_id(id, team_id)
-        if not user_to_update:
+        # Cukup ambil data pengguna sekali di awal
+        user_before_update = self.repo.get_by_id(id, team_id)
+        if not user_before_update:
             return None # Akan menghasilkan 404 di routes
 
-        # --- BLOK LOGIKA PENJAGAAN BARU ---
-        # Cek apakah ada upaya untuk mengubah tim
-        if data.id_team and str(data.id_team) != str(user_to_update.get('id_team')):
-            current_role_id = user_to_update.get('id_role')
-            
-            # Cek apakah pengguna saat ini memiliki role
+        # --- BLOK LOGIKA PENJAGAAN (Sudah benar) ---
+        if data.id_team and str(data.id_team) != str(user_before_update.get('id_team')):
+            current_role_id = user_before_update.get('id_role')
             if current_role_id:
-                # Periksa apakah permintaan update juga sekaligus menghapus role
-                # `exclude_unset=True` penting untuk tahu field apa saja yang dikirim client
                 update_fields = data.model_dump(exclude_unset=True)
                 is_role_being_removed = 'id_role' in update_fields and update_fields['id_role'] is None
-
-                # Jika role tidak sedang dihapus, lakukan validasi
                 if not is_role_being_removed:
                     raise HTTPException(
-                        status_code=400, # Bad Request
+                        status_code=400,
                         detail="Cannot change team while user is assigned to a role. Please unassign the role first, then change the team."
                     )
         
-        # Cek jika role diubah, pastikan role baru milik tim yang benar
         if data.id_role:
-            # Tentukan tim target (tim baru jika diubah, atau tim saat ini jika tidak)
-            target_team_id = data.id_team or user_to_update.get('id_team')
-            
+            target_team_id = data.id_team or user_before_update.get('id_team')
             role = self.repo.get_role_by_id(data.id_role)
             if not role or str(role.get('id_team')) != str(target_team_id):
                 raise HTTPException(status_code=400, detail="Invalid Role ID for the user's team.")
 
+        # Lakukan update
         updated_user = self.repo.update(id, data)
         
-        if updated_user and data.id_team:
-            email = updated_user.get('email')
-            account_type = updated_user.get('account_type')
-            
-            if email and account_type:
-                channel_name = f"user-updates-{email}-{account_type}"
-                send_pusher_notification(
-                    channel=channel_name,
-                    event='team-changed',
-                    data={'message': 'Your team assignment has been updated by an admin.'}
-                )
+        # Jika karena suatu alasan update gagal, hentikan proses
+        if not updated_user:
+            return None
+
+        # --- LOGIKA NOTIFIKASI (Sudah benar) ---
+        update_fields = data.model_dump(exclude_unset=True)
+        email = updated_user.get('email')
+        account_type = updated_user.get('account_type')
+
+        if not email or not account_type:
+            return updated_user
+
+        # Cek apakah TIM benar-benar berubah
+        team_has_changed = ('id_team' in update_fields and 
+                            str(update_fields['id_team']) != str(user_before_update.get('id_team')))
         
-        if updated_user and 'id_role' in data.model_dump(exclude_unset=True):
-            email = updated_user.get('email')
-            account_type = updated_user.get('account_type') # Diperlukan untuk channel yang unik
-            
-            if email and account_type:
-                channel_name = f"user-updates-{email}-{account_type}"
-                send_pusher_notification(
-                    channel=channel_name,
-                    event='role-changed',
-                    data={'message': 'Your role or permissions have been updated by an admin.'}
-                )
+        # Cek apakah ROLE benar-benar berubah
+        role_has_changed = ('id_role' in update_fields and 
+                            str(update_fields['id_role']) != str(user_before_update.get('id_role')))
+
+        # Kirim notifikasi berdasarkan perubahan yang terjadi
+        if team_has_changed:
+            channel_name = f"user-updates-{email}-{account_type}"
+            send_pusher_notification(
+                channel=channel_name,
+                event='team-changed',
+                data={'message': 'Your team assignment has been updated by an admin.'}
+            )
+
+        if role_has_changed:
+            channel_name = f"user-updates-{email}-{account_type}"
+            send_pusher_notification(
+                channel=channel_name,
+                event='role-changed',
+                data={'message': 'Your role or permissions have been updated by an admin.'}
+            )
         
         return updated_user
 

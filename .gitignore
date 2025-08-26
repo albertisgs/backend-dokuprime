@@ -6,9 +6,12 @@ __pycache__/
 
 
 .venv/
-
+# Ignore real env files
+.env
 *.env
 
+# Jangan ignore template
+!.env.example
 
 # Exclude annual reports and legal docs
 /public/file_annual_report/**/*.pdf

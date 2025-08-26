@@ -56,13 +56,13 @@ class KnowledgeRepository:
         )
         cur = conn.cursor()
 
-        sql = f"""
+        sql = """
             SELECT report_title, file_path
             FROM knowledge_base
-            WHERE id = {id}
+            WHERE id = %s 
         """
 
-        cur.execute(sql)
+        cur.execute(sql, (id,))
 
         rows = cur.fetchone()
         colnames = [desc[0] for desc in cur.description]
