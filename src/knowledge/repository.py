@@ -11,6 +11,7 @@ class KnowledgeRepository:
         self.password = os.getenv("DB_PASSWORD")
         self.db_name = os.getenv("DB_NAME")
         self.port = os.getenv("DB_PORT")
+        self.host = os.getenv("DB_URL")
         print("Repo Initiated!")
 
     async def getKnowledgesRepo(self):
@@ -20,7 +21,7 @@ class KnowledgeRepository:
             dbname=self.db_name,
             user=self.user,
             password=self.password,
-            host="localhost",
+            host=self.host,
             port=self.port
         )
         cur = conn.cursor()
@@ -51,7 +52,7 @@ class KnowledgeRepository:
             dbname=self.db_name,
             user=self.user,
             password=self.password,
-            host="localhost",
+            host=self.host,
             port=self.port
         )
         cur = conn.cursor()

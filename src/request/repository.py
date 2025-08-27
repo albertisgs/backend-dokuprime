@@ -13,6 +13,7 @@ class RequestRepository:
         self.password = os.getenv("DB_PASSWORD")
         self.db_name = os.getenv("DB_NAME")
         self.port = os.getenv("DB_PORT")
+        self.host = os.getenv("DB_URL")
         print("Request Repository Initialized!")
 
     def _get_connection(self):
@@ -21,7 +22,7 @@ class RequestRepository:
             dbname=self.db_name,
             user=self.user,
             password=self.password,
-            host="localhost",
+            host=self.host,
             port=self.port
         )
 

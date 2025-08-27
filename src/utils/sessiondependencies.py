@@ -13,7 +13,7 @@ def get_current_user_profile(request: Request) -> dict:
 
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"), user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"), host="localhost", port=os.getenv("DB_PORT")
+        password=os.getenv("DB_PASSWORD"), host=os.getenv("DB_URL"), port=os.getenv("DB_PORT")
     )
     cur = conn.cursor()
     try:

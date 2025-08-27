@@ -11,11 +11,12 @@ class RoleRepository:
         self.password = os.getenv("DB_PASSWORD")
         self.db_name = os.getenv("DB_NAME")
         self.port = os.getenv("DB_PORT")
+        self.host = os.getenv("DB_URL")
 
     def _get_connection(self):
         return psycopg2.connect(
             dbname=self.db_name, user=self.user, password=self.password,
-            host="localhost", port=self.port
+            host=self.host, port=self.port
         )
 
     def _map_row_to_dict(self, row, cursor):
