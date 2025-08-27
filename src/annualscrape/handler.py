@@ -15,7 +15,7 @@ class ScraperHandler:
         project_root = os.path.abspath(os.path.dirname(__file__)).rsplit("src", 1)[0]
 
         # Navigate up one level to the parent, then into the sibling dokuprime-api folder
-        self.base_download_dir = os.path.join(project_root, "..", "dokuprime-api", "file_annual_report")
+        self.base_download_dir = os.path.join(project_root, "..", "dokuprime-api","public", "file_annual_report")
         
         # Make sure the path is absolute and clean (e.g., resolves '..')
         self.base_download_dir = os.path.abspath(self.base_download_dir)
