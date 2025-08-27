@@ -1,0 +1,13 @@
+# FastAPI framework
+fastapi
+uvicorn[standard]
+python-multipart # For file uploads
+
+# Core processing libraries from your script
+PyMuPDF
+Pillow
+reportlab
+docx2pdf
+ollama
+python-dotenv
+aiofiles # For async file saving
