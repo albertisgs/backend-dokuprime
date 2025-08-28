@@ -24,20 +24,38 @@ class LegalRepository:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
+            # Kolom file_path dan processed_file_path sengaja tidak diisi saat create
             sql = """
-                INSERT INTO legal_documents (document_name, document_type, staff, team, status, file_path)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING id, upload_date, document_name, document_type, staff, team, status, file_path;
+                INSERT INTO legal_documents (document_name, document_type, staff, team, status)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, upload_date, document_name, document_type, staff, team, status, file_path, processed_file_path;
             """
             cur.execute(sql, (
                 doc_data['document_name'], doc_data['document_type'],
                 doc_data['staff'], doc_data['team'],
-                doc_data['status'], doc_data['file_path']
+                doc_data['status'] # Ini akan diisi 'pending' oleh handler
             ))
             new_record = cur.fetchone()
             conn.commit()
             columns = [desc[0] for desc in cur.description]
             return dict(zip(columns, new_record))
+        finally:
+            cur.close()
+            conn.close()
+
+    # --- FUNGSI BARU ---
+    def update_status_and_paths(self, doc_id: UUID, status: str, pdf_path: Optional[str], txt_path: Optional[str]):
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            sql = """
+                UPDATE legal_documents
+                SET status = %s, file_path = %s, processed_file_path = %s
+                WHERE id = %s;
+            """
+            cur.execute(sql, (status, pdf_path, txt_path, str(doc_id)))
+            conn.commit()
+            return cur.rowcount > 0
         finally:
             cur.close()
             conn.close()
@@ -68,27 +86,25 @@ class LegalRepository:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute("DELETE FROM legal_documents WHERE id = %s RETURNING file_path", (str(doc_id),))
+            # PERBAIKAN: Hapus juga processed_file_path jika ada
+            cur.execute("DELETE FROM legal_documents WHERE id = %s RETURNING file_path, processed_file_path", (str(doc_id),))
             record = cur.fetchone()
             conn.commit()
             if record:
-                return record[0]
+                # Kembalikan path dari file PDF untuk dihapus dari disk
+                return record[0] 
             return None
         finally:
             cur.close()
             conn.close()
 
     def delete_multiple(self, doc_ids: List[UUID]) -> List[str]:
-        """Menghapus beberapa dokumen berdasarkan daftar ID."""
         conn = self._get_connection()
         cur = conn.cursor()
         try:
             ids_list = [str(doc_id) for doc_id in doc_ids]
-            
-            # PERBAIKAN: Tambahkan type cast ::uuid[] pada placeholder
             query = "DELETE FROM legal_documents WHERE id = ANY(%s::uuid[]) RETURNING file_path"
             cur.execute(query, (ids_list,))
-            
             file_paths = [row[0] for row in cur.fetchall()]
             conn.commit()
             return file_paths

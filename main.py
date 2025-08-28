@@ -18,7 +18,7 @@ from src.usermanagement.routes import (
     authenticated_router as usermanagement_auth_router
 )
 from src.teammanagement.routes import router as team_management_router 
-from src.uploadlegal.routes import router as legal_document_router
+from src.uploadlegal.routes import( router as legal_document_router, sistem_router as legal_sistem_router)
 # --- PERUBAHAN ---
 # Mengimpor router untuk role management
 from src.rolemanagament.routes import (
@@ -54,6 +54,7 @@ class SynchronoSyncAPI:
         self.app.include_router(knowledge_routes.router, prefix="/api/knowledge")
         # url upload
         self.app.include_router(legal_document_router, prefix="/api/legal-documents",)
+        self.app.include_router(legal_sistem_router, prefix="/api/sistem-documents",)
         # auth
         auth_cookies_routes = AuthCookiesRoutes()
         self.app.include_router(auth_cookies_routes.router, prefix="/api/auth")

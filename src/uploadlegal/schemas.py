@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import date
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 class LegalDocumentBase(BaseModel):
@@ -9,7 +9,8 @@ class LegalDocumentBase(BaseModel):
     staff: str
     team: str
     status: str
-    file_path: str
+    file_path: Optional[str] = None # Sekarang bisa null di awal
+    processed_file_path: Optional[str] = None # Kolom baru
     upload_date: date
 
 class LegalDocumentOut(LegalDocumentBase):
@@ -20,12 +21,18 @@ class LegalDocumentOut(LegalDocumentBase):
 
 class UploadSuccessResponse(BaseModel):
     message: str
-    document: LegalDocumentOut
+    documents: List[LegalDocumentOut] # Kembalikan list of documents
 
 class StatusResponse(BaseModel):
     status: str
     message: str
 
-# Skema baru untuk permintaan hapus ganda
 class MultipleDeleteRequest(BaseModel):
     doc_ids: List[UUID] = Field(..., min_items=1)
+
+# --- SKEMA BARU UNTUK CALLBACK ---
+class DocumentProcessUpdate(BaseModel):
+    document_id: UUID
+    status: str # "completed" or "failed"
+    searchable_pdf_path: Optional[str] = None
+    processed_text_path: Optional[str] = None

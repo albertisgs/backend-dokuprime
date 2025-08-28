@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks
 from .handler import LegalDocumentHandler
-from .schemas import UploadSuccessResponse, LegalDocumentOut, StatusResponse, MultipleDeleteRequest
+from .schemas import UploadSuccessResponse, LegalDocumentOut, StatusResponse, MultipleDeleteRequest, DocumentProcessUpdate
 from ..utils.sessiondependencies import get_current_user_profile
 from ..utils.dependecies import require_access
 from typing import List
@@ -11,14 +11,27 @@ router = APIRouter(
     tags=["Legal Documents"],
 )
 
+sistem_router = APIRouter(tags=["from ai"])
+
 handler = LegalDocumentHandler()
 
+# --- ENDPOINT DIPERBARUI ---
 @router.post("/upload", response_model=UploadSuccessResponse)
-async def upload_legal_document(
+async def upload_legal_documents(
+    background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user_profile),
-    file: UploadFile = File(...)
+    files: List[UploadFile] = File(...)
 ):
-    return handler.upload_and_save_document(file, user)
+    return await handler.handle_batch_upload(files, user, background_tasks)
+
+# --- ENDPOINT BARU (UNTUK CALLBACK DARI AI SERVICE) ---
+sistem_router.post("/update-status", response_model=StatusResponse)
+async def update_document_status_from_ai(update_data: DocumentProcessUpdate):
+    """
+    Endpoint ini TIDAK untuk dipanggil frontend.
+    Ini adalah webhook untuk dipanggil oleh Layanan AI setelah pemrosesan selesai.
+    """
+    return handler.update_document_status(update_data)
 
 @router.get("/", response_model=List[LegalDocumentOut])
 def get_all_legal_documents():
