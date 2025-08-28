@@ -1,9 +1,9 @@
+# src/processor/handler.py
+
 import os
 import shutil
 import httpx
-import uuid
 from typing import List, Dict
-from fastapi import UploadFile
 from uuid import UUID
 from .logic import AIServiceLogic
 
@@ -34,34 +34,29 @@ class DocumentProcessorHandler:
             except httpx.RequestError as e:
                 print(f"❌ Failed to send callback for doc {doc_id}: {e}")
 
-    async def process_batch(self, files: List[UploadFile], doc_id_map: Dict[str, UUID]):
-        """Simpan file dari batch dan proses satu per satu."""
-        for file in files:
-            doc_id = doc_id_map.get(file.filename)
-            if not doc_id:
-                print(f"⚠️ Warning: No document ID found for file {file.filename}. Skipping.")
+    async def process_batch(self, tasks: List[Dict]):
+        """Process files from a list of tasks containing saved file paths."""
+        for task in tasks:
+            temp_input_path = task.get("temp_path")
+            original_filename = task.get("original_filename")
+            doc_id = task.get("doc_id")
+
+            if not all([temp_input_path, original_filename, doc_id]):
+                print(f"⚠️ Warning: Invalid task data received: {task}. Skipping.")
                 continue
 
-            # Simpan file sementara untuk diproses
-            temp_input_path = os.path.join(self.input_dir, f"{uuid.uuid4()}-{file.filename}")
-            
             try:
-                with open(temp_input_path, "wb") as buffer:
-                    shutil.copyfileobj(file.file, buffer)
+                print(f"\n--- Starting AI processing for: {original_filename} (ID: {doc_id}) ---")
                 
-                print(f"\n--- Starting AI processing for: {file.filename} (ID: {doc_id}) ---")
-                
-                # Jalankan alur logika pemrosesan
-                pdf_path, txt_path = await self.logic.run_full_process(temp_input_path, original_filename=file.filename)
+                # Jalankan alur logika pemrosesan using the saved file path
+                pdf_path, txt_path = await self.logic.run_full_process(temp_input_path, original_filename=original_filename)
                 
                 # Kirim notifikasi sukses
                 await self.notify_main_api(doc_id, "completed", pdf_path, txt_path)
 
             except Exception as e:
-                print(f"❌ Full process failed for {file.filename}: {e}")
+                print(f"❌ Full process failed for {original_filename}: {e}")
                 # Kirim notifikasi gagal
                 await self.notify_main_api(doc_id, "failed")
-            finally:
-                if os.path.exists(temp_input_path):
-                    os.remove(temp_input_path) # Hapus file input temp
-                file.file.close()
+            
+            # Note: The temp_input_path is cleaned up inside run_full_process -> ocr_handler.process_document
