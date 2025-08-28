@@ -85,7 +85,7 @@ class SynchronoSyncAPI:
     def run(self):
         uvicorn.run(
             self.app,
-            port=9898,
+            port=9798,
         )
 
 synchrono_sync_api = SynchronoSyncAPI()

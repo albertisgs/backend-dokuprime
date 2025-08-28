@@ -25,7 +25,7 @@ async def upload_legal_documents(
     return await handler.handle_batch_upload(files, user, background_tasks)
 
 # --- ENDPOINT BARU (UNTUK CALLBACK DARI AI SERVICE) ---
-sistem_router.post("/update-status", response_model=StatusResponse)
+@sistem_router.post("/update-status", response_model=StatusResponse)
 async def update_document_status_from_ai(update_data: DocumentProcessUpdate):
     """
     Endpoint ini TIDAK untuk dipanggil frontend.
