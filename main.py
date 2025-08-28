@@ -32,7 +32,7 @@ class DocProcessorAPI:
         uvicorn.run(
             self.app,
             host="0.0.0.0", # Listen on all available network interfaces
-            port=9798, # Using a different port than your other API
+            port=9797, # Using a different port than your other API
         )
 
 doc_processor_api = DocProcessorAPI()
