@@ -67,8 +67,9 @@ class AIServiceLogic:
         # Pindahkan file PDF hasil OCR ke direktori public/legal di API Utama
         # We use the original_filename here to keep the final name clean
         original_name_base, _ = os.path.splitext(original_filename)
-        unique_suffix = str(uuid.uuid4()).split('-')[0]
-        final_pdf_filename = f"{original_name_base}-{unique_suffix}.pdf"
+        # unique_suffix = str(uuid.uuid4()).split('-')[0]
+        # final_pdf_filename = f"{original_name_base}-{unique_suffix}.pdf"
+        final_pdf_filename = f"{original_name_base}.pdf"
         final_pdf_path_on_disk = os.path.join(self.output_pdf_dir, final_pdf_filename)
         os.rename(ocr_output_path, final_pdf_path_on_disk)
         
@@ -94,7 +95,8 @@ class AIServiceLogic:
             print("⚠️ Proses Dify tidak menghasilkan file .txt, mungkin karena tidak ada teks.")
             return db_pdf_path, None
 
-        final_txt_filename = f"{original_name_base}-{unique_suffix}.txt"
+        # final_txt_filename = f"{original_name_base}-{unique_suffix}.txt"
+        final_txt_filename = f"{original_name_base}.txt"
         final_txt_path_on_disk = os.path.join(self.output_txt_dir, final_txt_filename)
         os.rename(dify_output_path, final_txt_path_on_disk)
         
