@@ -95,7 +95,8 @@ class AIServiceLogic:
             print("⚠️ Proses Dify tidak menghasilkan file .txt, mungkin karena tidak ada teks.")
             return db_pdf_path, None
 
-        # final_txt_filename = f"{original_name_base}-{unique_suffix}.txt"
+        # --- PERBAIKAN DI SINI ---
+        # Gunakan 'original_name_base' untuk membuat nama file .txt agar tidak ada ekstensi .pdf
         final_txt_filename = f"{original_name_base}.txt"
         final_txt_path_on_disk = os.path.join(self.output_txt_dir, final_txt_filename)
         os.rename(dify_output_path, final_txt_path_on_disk)
