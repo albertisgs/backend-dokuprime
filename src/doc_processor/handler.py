@@ -32,7 +32,7 @@ class DocumentProcessorHandler:
 
         elif extension.lower() in ['.png', '.jpeg', '.jpg']:
             print("Image file detected. Using Gemma Vision...")
-            final_text = utils.extract_text_with_gemma_vision(input_path)
+            final_text = utils.extract_text_with_gemini_vision(input_path)
             if final_text:
                 utils.create_searchable_pdf(final_text, output_path)
             else:
@@ -51,7 +51,7 @@ class DocumentProcessorHandler:
                     pix = page.get_pixmap(dpi=300)
                     img_path = f"temp_page_{i}.png"
                     pix.save(img_path)
-                    page_text = utils.extract_text_with_gemma_vision(img_path)
+                    page_text = utils.extract_text_with_gemini_vision(img_path)
                     full_final_text += page_text + "\n\n"
                     os.remove(img_path)
                 

@@ -1,9 +1,7 @@
-# src/doc_processor/utils.py
-
 import os
 import base64
-import ollama
 import fitz  # PyMuPDF
+import google.generativeai as genai
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
@@ -13,49 +11,66 @@ from reportlab.platypus import Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from docx2pdf import convert
 from dotenv import load_dotenv
+import mimetypes # Tambahkan ini untuk mendeteksi tipe file gambar
 
 # Load environment variables from .env file
 load_dotenv()
 
+# --- PERUBAHAN DI SINI ---
 # Load configuration from environment variables
-OLLAMA_HOST = os.getenv('OLLAMA_HOST')
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL')
 
+# --- KEMBALIKAN FUNGSI INI ---
 def image_to_base64(image_path: str):
-    """Reads an image file and converts it to a Base64 string."""
+    """Membaca file gambar dan mengubahnya menjadi string Base64."""
     try:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
     except Exception as e:
-        print(f"Failed to convert image to Base64: {e}")
+        print(f"Gagal mengubah gambar ke Base64: {e}")
         return None
 
-def extract_text_with_gemma_vision(image_path: str):
-    """Sends an image (as Base64) to the Gemma model for text extraction."""
-    if not OLLAMA_MODEL or not OLLAMA_HOST:
-        error_msg = "Error: OLLAMA_MODEL or OLLAMA_HOST environment variables are not set. Please check your .env file."
+# --- UBAH FUNGSI INI UNTUK MENGGUNAKAN GEMINI DENGAN BASE64 ---
+def extract_text_with_gemini_vision(image_path: str):
+    """Mengirim gambar (sebagai Base64) ke model Gemini untuk ekstraksi teks."""
+    if not GEMINI_API_KEY or not GEMINI_MODEL:
+        error_msg = "Error: GEMINI_API_KEY atau GEMINI_MODEL environment variables tidak diatur. Silakan cek file .env Anda."
         print(error_msg)
         return ""
 
-    print(f"Converting {os.path.basename(image_path)} to Base64...")
+    print(f"Mengubah {os.path.basename(image_path)} ke Base64...")
     base64_image = image_to_base64(image_path)
     if not base64_image:
         return ""
+    
+    # Dapatkan tipe MIME dari file gambar
+    mime_type, _ = mimetypes.guess_type(image_path)
+    if mime_type is None:
+        print(f"Tidak dapat mendeteksi tipe MIME untuk {image_path}. Menggunakan default 'image/png'.")
+        mime_type = 'image/png'
 
-    print(f"Contacting ({OLLAMA_MODEL}) to extract text from image...")
     try:
-        client = ollama.Client(host=OLLAMA_HOST)
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        print(f"Menghubungi ({GEMINI_MODEL}) untuk mengekstrak teks dari gambar...")
+        
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        
         prompt = "Transcribe all text in this image with high accuracy. Preserve the original line and paragraph formatting. Do not add any text other than what is in the input file."
-        response = client.generate(
-            model=OLLAMA_MODEL,
-            prompt=prompt,
-            options={"temperature": 0.0},
-            images=[base64_image],
-        )
-        print("Text extraction with Gemma Vision successful.")
-        return response['response']
+
+        # Buat payload konten sesuai format API Gemini
+        image_part = {
+            "mime_type": mime_type,
+            "data": base64_image
+        }
+        
+        response = model.generate_content([prompt, image_part])
+        
+        print("Ekstraksi teks dengan Gemini Vision berhasil.")
+        return response.text
     except Exception as e:
-        print(f"Error contacting Gemma with image: {e}")
+        print(f"Error saat menghubungi Gemini dengan gambar: {e}")
         return ""
 
 def is_pdf_scanned(file_path: str):
