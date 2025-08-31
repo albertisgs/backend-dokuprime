@@ -85,7 +85,8 @@ class LegalDocumentHandler:
                     detail=f"File '{file.filename}' has an invalid type. Allowed: {', '.join(ALLOWED_MIME_TYPES.values())}"
                 )
 
-            temp_file_path = os.path.join(TEMP_UPLOAD_DIRECTORY, f"{uuid.uuid4()}-{file.filename}")
+            # temp_file_path = os.path.join(TEMP_UPLOAD_DIRECTORY, f"{uuid.uuid4()}-{file.filename}")
+            temp_file_path = os.path.join(TEMP_UPLOAD_DIRECTORY, f"{file.filename}")
             
             try:
                 with open(temp_file_path, "wb") as buffer:
