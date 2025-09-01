@@ -1,3 +1,5 @@
+# src/uploadlegal/repository.py
+
 import os
 import psycopg2
 from dotenv import load_dotenv
@@ -60,15 +62,25 @@ class LegalRepository:
             cur.close()
             conn.close()
 
-    def get_all(self) -> List[dict]:
+    def get_all(self, team_name: Optional[str] = None) -> List[dict]:
         conn = self._get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM legal_documents ORDER BY upload_date DESC, id DESC")
-        columns = [desc[0] for desc in cur.description]
-        data = [dict(zip(columns, row)) for row in cur.fetchall()]
-        cur.close()
-        conn.close()
-        return data
+        try:
+            query = "SELECT * FROM legal_documents"
+            params = []
+            if team_name:
+                query += " WHERE team = %s"
+                params.append(team_name)
+            
+            query += " ORDER BY upload_date DESC, id DESC"
+            
+            cur.execute(query, tuple(params))
+            columns = [desc[0] for desc in cur.description]
+            data = [dict(zip(columns, row)) for row in cur.fetchall()]
+            return data
+        finally:
+            cur.close()
+            conn.close()
 
     def get_by_id(self, doc_id: UUID) -> Optional[dict]:
         conn = self._get_connection()
@@ -82,30 +94,28 @@ class LegalRepository:
             return dict(zip(columns, record))
         return None
 
-    def delete(self, doc_id: UUID) -> Optional[str]:
+    def delete(self, doc_id: UUID) -> Optional[tuple]:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            # PERBAIKAN: Hapus juga processed_file_path jika ada
             cur.execute("DELETE FROM legal_documents WHERE id = %s RETURNING file_path, processed_file_path", (str(doc_id),))
             record = cur.fetchone()
             conn.commit()
             if record:
-                # Kembalikan path dari file PDF untuk dihapus dari disk
-                return record[0] 
+                return record 
             return None
         finally:
             cur.close()
             conn.close()
 
-    def delete_multiple(self, doc_ids: List[UUID]) -> List[str]:
+    def delete_multiple(self, doc_ids: List[UUID]) -> List[tuple]:
         conn = self._get_connection()
         cur = conn.cursor()
         try:
             ids_list = [str(doc_id) for doc_id in doc_ids]
-            query = "DELETE FROM legal_documents WHERE id = ANY(%s::uuid[]) RETURNING file_path"
+            query = "DELETE FROM legal_documents WHERE id = ANY(%s::uuid[]) RETURNING file_path, processed_file_path"
             cur.execute(query, (ids_list,))
-            file_paths = [row[0] for row in cur.fetchall()]
+            file_paths = [row for row in cur.fetchall()]
             conn.commit()
             return file_paths
         finally:

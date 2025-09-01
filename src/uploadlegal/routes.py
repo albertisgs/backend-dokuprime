@@ -1,3 +1,5 @@
+# src/uploadlegal/routes.py
+
 from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks
 from .handler import LegalDocumentHandler
 from .schemas import UploadSuccessResponse, LegalDocumentOut, StatusResponse, MultipleDeleteRequest, DocumentProcessUpdate
@@ -15,7 +17,6 @@ sistem_router = APIRouter(tags=["from ai"])
 
 handler = LegalDocumentHandler()
 
-# --- ENDPOINT DIPERBARUI ---
 @router.post("/upload", response_model=UploadSuccessResponse)
 async def upload_legal_documents(
     background_tasks: BackgroundTasks,
@@ -24,7 +25,6 @@ async def upload_legal_documents(
 ):
     return await handler.handle_batch_upload(files, user, background_tasks)
 
-# --- ENDPOINT BARU (UNTUK CALLBACK DARI AI SERVICE) ---
 @sistem_router.post("/update-status", response_model=StatusResponse)
 async def update_document_status_from_ai(update_data: DocumentProcessUpdate):
     """
@@ -34,17 +34,25 @@ async def update_document_status_from_ai(update_data: DocumentProcessUpdate):
     return handler.update_document_status(update_data)
 
 @router.get("/", response_model=List[LegalDocumentOut])
-def get_all_legal_documents():
-    return handler.get_all_documents()
+def get_all_legal_documents(user: dict = Depends(get_current_user_profile)):
+    return handler.get_all_documents(user)
 
 @router.get("/{doc_id}", response_model=LegalDocumentOut)
-def get_legal_document_by_id(doc_id: UUID):
-    return handler.get_document_by_id(doc_id)
+def get_legal_document_by_id(doc_id: UUID, user: dict = Depends(get_current_user_profile)):
+    return handler.get_document_by_id(doc_id, user)
 
 @router.delete("/{doc_id}", response_model=StatusResponse)
-def delete_legal_document(doc_id: UUID):
-    return handler.delete_document_and_file(doc_id)
+async def delete_legal_document(
+    doc_id: UUID, 
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_profile)
+):
+    return await handler.delete_document_and_file(doc_id, user, background_tasks)
 
 @router.post("/delete-multiple", response_model=StatusResponse)
-def delete_multiple_legal_documents(request: MultipleDeleteRequest):
-    return handler.delete_multiple_documents(request.doc_ids)
+async def delete_multiple_legal_documents(
+    request: MultipleDeleteRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_profile)
+):
+    return await handler.delete_multiple_documents(request.doc_ids, user, background_tasks)
