@@ -3,14 +3,79 @@
 import os
 import uuid
 from dotenv import load_dotenv
+import json
+import requests
+from pathlib import Path
 
 # --- Impor kelas-kelas yang sudah Anda buat ---
 from ..doc_processor.handler import DocumentProcessorHandler as OcrHandler
 from ..dify_processor.runner import process_document_with_llm
 from ..dify_processor.llm import LLM
+# Impor DifyDataset yang asli untuk di-override
 from ..dify_processor.dify import DifyDataset
 
 load_dotenv()
+
+# --- FIX: Custom DifyDataset Class ---
+# Kelas kustom ini mewarisi dari DifyDataset yang asli tetapi menimpa
+# metode unggah untuk memperbaiki nama file sebelum dikirim ke Dify API.
+# Ini dilakukan untuk mematuhi batasan untuk tidak mengubah modul dify_processor.
+class CustomDifyDataset(DifyDataset):
+    def upload_document_to_dataset(self, file_path):
+        """
+        Mengunggah dokumen ke dataset Dify, memastikan nama file
+        diperbaiki dari 'name.pdf.txt' menjadi 'name.txt' untuk proses unggah.
+        """
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Perbaiki nama file: "file.pdf.txt" -> "file.txt"
+        correct_stem = Path(file_path_obj.stem).stem
+        correct_filename = f"{correct_stem}.txt"
+
+        print(f"Uploading to Dify with corrected filename: {correct_filename} (original on disk: {file_path_obj.name})")
+
+        # Sisa dari metode ini adalah salinan dari implementasi asli,
+        # tetapi menggunakan `correct_filename` dalam payload 'files'.
+        url = f"{self.base_url}/datasets/{self.id}/document/create-by-file"
+        headers = { 'Authorization': f'Bearer {self.api_key}' }
+        files = {
+            'file': (correct_filename, open(file_path, 'rb'), 'text/plain')
+        }
+        data_payload = {
+            "indexing_technique": "high_quality",
+            "process_rule": {
+                "rules": {
+                    "pre_processing_rules": [
+                        {"id": "remove_extra_spaces", "enabled": False},
+                        {"id": "remove_urls_emails", "enabled": False}
+                    ],
+                    "segmentation": {
+                        "separator": "===[TEXT]===",
+                        "max_tokens": 4000,
+                        "chunk_overlap": 400
+                    }
+                },
+                "mode": "custom"
+            }
+        }
+        data = { 'data': (None, json.dumps(data_payload), 'text/plain') }
+
+        try:
+            response = requests.post(url, headers=headers, files=files, data=data)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"Response status code: {e.response.status_code}")
+                print(f"Response text: {e.response.text}")
+            raise
+        finally:
+            if 'file' in files:
+                files['file'][1].close()
+
 
 class AIServiceLogic:
     def __init__(self):
@@ -25,7 +90,9 @@ class AIServiceLogic:
             embedding_base_url=os.getenv("EMBEDDINGS_BASE_URL"),
             embedding_model=os.getenv("EMBEDDINGS_MODEL"),
         )
-        self.dify_dataset = DifyDataset(
+        
+        # --- FIX: Gunakan kelas CustomDifyDataset ---
+        self.dify_dataset = CustomDifyDataset(
             base_url=os.getenv("DATASET_BASE_URL"),
             id=os.getenv("DATASET_ID"),
             api_key=os.getenv("DATASET_API_KEY")

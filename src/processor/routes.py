@@ -1,6 +1,6 @@
 # src/processor/routes.py
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks,status
 from typing import List, Dict
 from .handler import DocumentProcessorHandler
 from uuid import UUID
@@ -9,6 +9,15 @@ import aiofiles
 
 router = APIRouter()
 handler = DocumentProcessorHandler()
+
+
+@router.delete("/delete-document/{document_name}", status_code=status.HTTP_200_OK)
+async def delete_dify_document(document_name: str):
+    """
+    Menghapus sebuah dokumen dari dataset Dify berdasarkan namanya.
+    Nama dokumen harus sama persis dengan yang ada di Dify (e.g., 'mydoc.txt').
+    """
+    return await handler.delete_document(document_name)
 
 @router.post("/process-batch")
 async def process_document_batch(
