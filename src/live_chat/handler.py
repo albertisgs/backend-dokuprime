@@ -3,7 +3,7 @@
 from fastapi import HTTPException, status
 from uuid import UUID
 from .repository import LiveChatRepository
-from .schemas import ChatSessionRequest, AgentMessageRequest
+from .schemas import ChatSessionRequest, AgentMessageRequest, UserMessageRequest
 from ..utils.pusher import send_pusher_notification
 from typing import Dict, Any
 
@@ -29,6 +29,31 @@ class LiveChatHandler:
             }
         )
         return {"status": "success", "session_id": new_session['id']}
+    
+    # --- TAMBAHKAN FUNGSI BARU INI ---
+    def send_user_message(self, session_id: UUID, user_id: UUID, data: UserMessageRequest):
+        """User mengirim pesan ke agent."""
+        # Verifikasi dulu apakah sesi ini milik user tersebut dan aktif
+        session = self.repo.get_session_with_messages(session_id)
+        if not session or str(session.get('user_id')) != str(user_id) or session.get('status') != 'active':
+            raise HTTPException(status_code=403, detail="Cannot send message to this session.")
+
+        new_message = self.repo.add_message(session_id, user_id, 'user', data.text)
+
+        # Kirim notifikasi ke agent melalui Pusher
+        session_channel = f"chat-session-{session_id}"
+        pusher_data = {
+            "id": new_message['id'],
+            "session_id": str(session_id),
+            "sender_id": str(user_id),
+            "sender_type": "user",
+            "message_text": data.text,
+            "timestamp": new_message['timestamp'].isoformat()
+        }
+        send_pusher_notification(session_channel, 'new_message', pusher_data)
+        
+        return {"status": "success", "message": new_message}
+    # --- BATAS PENAMBAHAN ---
 
     def get_agent_queue(self):
         """Mengambil daftar sesi yang sedang menunggu di antrian."""

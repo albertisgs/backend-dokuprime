@@ -12,6 +12,12 @@ class ChatSessionRequest(BaseModel):
 # Schema untuk pesan yang dikirim oleh agen
 class AgentMessageRequest(BaseModel):
     message_text: str
+    
+# --- TAMBAHKAN SKEMA BARU INI ---
+# Schema untuk pesan yang dikirim oleh user ke agent
+class UserMessageRequest(BaseModel):
+    text: str
+# --- BATAS PENAMBAHAN ---
 
 # --- TAMBAHAN BARU ---
 # Schema untuk menampilkan pesan individual dalam sesi
@@ -51,4 +57,3 @@ class QueueItemOut(BaseModel):
 
     class Config:
         from_attributes = True
-

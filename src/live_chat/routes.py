@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from uuid import UUID
 from .handler import LiveChatHandler
 # --- PERBAIKAN: Impor schema yang benar ---
-from .schemas import ChatSessionRequest, QueueItemOut, ChatSessionOut, AgentMessageRequest
+from .schemas import ChatSessionRequest, QueueItemOut, ChatSessionOut, AgentMessageRequest, UserMessageRequest
 from ..utils.sessiondependencies import get_current_user_profile
 from ..utils.dependecies import require_permission
 
@@ -31,6 +31,18 @@ def request_session(
 ):
     user_id = current_user.get("id")
     return handler.request_chat_session(user_id, data)
+
+# --- TAMBAHKAN ENDPOINT BARU INI ---
+@user_router.post("/{session_id}/send-message")
+def user_send_message(
+    session_id: UUID,
+    data: UserMessageRequest,
+    current_user: dict = Depends(get_current_user_profile)
+):
+    """Pengguna mengirim pesan dalam sesi chat yang aktif."""
+    user_id = current_user.get("id")
+    return handler.send_user_message(session_id, user_id, data)
+# --- BATAS PENAMBAHAN ---
 
 # --- Endpoint untuk Agen ---
 
@@ -70,4 +82,3 @@ def resolve_session(
     """Agen menandai sesi sebagai selesai/teratasi."""
     agent_id = current_user.get("id")
     return handler.resolve_session(session_id, agent_id)
-
