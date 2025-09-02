@@ -47,6 +47,8 @@ def claim_session(
     """Seorang agen mengklaim sesi chat dari antrian."""
     agent_id = current_user.get("id")
     agent_name = current_user.get("username")
+    print(agent_id)
+    print(agent_name)
     return handler.claim_chat_session(session_id, agent_id, agent_name)
 
 @agent_router.post("/sessions/{session_id}/send-message")

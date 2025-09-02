@@ -11,7 +11,7 @@ class DifyTestRepository:
         self.dify_password = os.getenv("DIFY_DB_PASSWORD")
         self.dify_db_name = os.getenv("DIFY_DB_NAME")
         self.dify_port = os.getenv("DIFY_DB_PORT")
-        self.dify_host = os.getenv("DIFY_DB_HOST")
+        self.dify_host = os.getenv("DIFY_DB_URL")
 
     def _get_dify_connection(self):
         """Membuka koneksi ke database Dify."""

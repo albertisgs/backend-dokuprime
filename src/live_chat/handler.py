@@ -41,31 +41,38 @@ class LiveChatHandler:
             raise HTTPException(status_code=404, detail="Session not found or already claimed.")
 
         # Ambil riwayat percakapan dari Dify
+        # Ganti seluruh blok pengambilan riwayat ini:
         dify_conversation_id = claimed_session.get('dify_conversation_id')
         dify_history = self.repo.get_dify_history(dify_conversation_id)
-
         history_messages = []
         if dify_history:
             for item in dify_history:
-                # Pesan dari user (query)
                 history_messages.append({
                     "sender_type": "user",
-                    "message_text": item.get('query'), # FIX: Menggunakan 'message_text'
+                    "message_text": item.get('query'),
                     "timestamp": item.get('created_at').isoformat()
                 })
-                # Pesan dari bot (answer)
                 cleaned_answer = item.get('answer', '').replace('<trigger_agent>', '').strip()
                 if cleaned_answer:
                     history_messages.append({
-                        "sender_type": "bot",
-                        "message_text": cleaned_answer, # FIX: Menggunakan 'message_text'
+                        "sender_type": "bot", # 'bot' lebih deskriptif
+                        "message_text": cleaned_answer,
                         "timestamp": item.get('created_at').isoformat()
                     })
+
+        # Ambil juga pesan yang sudah ada di sesi live chat (jika ada)
+        live_messages = self.repo.get_session_with_messages(session_id)
+
         
         claimed_session['history'] = history_messages
+        # Gabungkan semua data ke dalam format yang benar
+        response_data = claimed_session
+        response_data['history'] = history_messages
+        response_data['messages'] = live_messages.get('messages', []) if live_messages else []
+
         
         # Kirim notifikasi ke pengguna bahwa agen telah terhubung
-        user_channel = f"user-{claimed_session['user_id']}"
+        user_channel = f"user-chat-{claimed_session['user_id']}"
         send_pusher_notification(
             channel=user_channel,
             event='agent-connected',
@@ -82,7 +89,7 @@ class LiveChatHandler:
             data={'session_id': str(session_id)}
         )
 
-        return claimed_session
+        return response_data 
 
     def send_agent_message(self, session_id: UUID, agent_id: UUID, data: AgentMessageRequest):
         """Agen mengirim pesan ke pengguna."""
@@ -90,7 +97,7 @@ class LiveChatHandler:
         new_message = self.repo.add_message(session_id, agent_id, 'agent', text)
 
         # Kirim pesan ke channel sesi spesifik
-        session_channel = f"session-{session_id}"
+        session_channel = f"chat-session-{session_id}"
         pusher_data = {
             "session_id": str(session_id),
             "sender_id": str(agent_id),
