@@ -40,8 +40,6 @@ class LiveChatHandler:
         if not claimed_session:
             raise HTTPException(status_code=404, detail="Session not found or already claimed.")
 
-        # Ambil riwayat percakapan dari Dify
-        # Ganti seluruh blok pengambilan riwayat ini:
         dify_conversation_id = claimed_session.get('dify_conversation_id')
         dify_history = self.repo.get_dify_history(dify_conversation_id)
         history_messages = []
@@ -55,23 +53,18 @@ class LiveChatHandler:
                 cleaned_answer = item.get('answer', '').replace('<trigger_agent>', '').strip()
                 if cleaned_answer:
                     history_messages.append({
-                        "sender_type": "bot", # 'bot' lebih deskriptif
+                        "sender_type": "bot",
                         "message_text": cleaned_answer,
                         "timestamp": item.get('created_at').isoformat()
                     })
 
-        # Ambil juga pesan yang sudah ada di sesi live chat (jika ada)
         live_messages = self.repo.get_session_with_messages(session_id)
 
-        
-        claimed_session['history'] = history_messages
-        # Gabungkan semua data ke dalam format yang benar
         response_data = claimed_session
         response_data['history'] = history_messages
         response_data['messages'] = live_messages.get('messages', []) if live_messages else []
 
-        
-        # Kirim notifikasi ke pengguna bahwa agen telah terhubung
+        # FIX: Menggunakan channel yang benar dengan user_id dari sesi
         user_channel = f"user-chat-{claimed_session['user_id']}"
         send_pusher_notification(
             channel=user_channel,
@@ -82,7 +75,6 @@ class LiveChatHandler:
             }
         )
         
-        # Hapus sesi dari antrian di UI semua agen
         send_pusher_notification(
             channel='agent-dashboard',
             event='session-claimed',
@@ -96,9 +88,9 @@ class LiveChatHandler:
         text = data.message_text
         new_message = self.repo.add_message(session_id, agent_id, 'agent', text)
 
-        # Kirim pesan ke channel sesi spesifik
         session_channel = f"chat-session-{session_id}"
         pusher_data = {
+            "id": new_message['id'], # Menyertakan ID pesan untuk key yang unik di frontend
             "session_id": str(session_id),
             "sender_id": str(agent_id),
             "sender_type": "agent",
@@ -114,12 +106,11 @@ class LiveChatHandler:
         if not closed_session:
             raise HTTPException(status_code=404, detail="Active session not found for this agent.")
 
-        # Kirim notifikasi ke user bahwa sesi telah ditutup
-        user_channel = f"user-{closed_session['user_id']}"
+        # FIX: Menggunakan channel dan event yang benar
+        user_channel = f"user-chat-{closed_session['user_id']}"
         send_pusher_notification(
             channel=user_channel,
-            event='session-resolved',
+            event='session-resolved', # Mengirim 'session-resolved'
             data={'session_id': str(session_id)}
         )
         return {"status": "success", "message": "Session has been resolved."}
-
