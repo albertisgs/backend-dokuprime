@@ -25,6 +25,13 @@ from src.rolemanagament.routes import (
     router as role_management_router,
     superadmin_router as role_management_superadmin_router
 )
+#livechat
+from src.live_chat.routes import (
+    user_router as live_chat_user_router,
+    agent_router as live_chat_agent_router
+)
+from src.dify_test.routes import DifyTestRoutes
+
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -81,6 +88,15 @@ class SynchronoSyncAPI:
         #notifikasi
         self.app.include_router(notification_router, prefix="/api/notifications")
         self.app.include_router(notification_admin_router, prefix="/api/notifications/admin")
+        
+        # Live Chat
+        self.app.include_router(live_chat_user_router, prefix="/api/live-chat")
+        self.app.include_router(live_chat_agent_router, prefix="/api/live-chat")
+        
+        #cek connection
+        dify_test_routes = DifyTestRoutes()
+        self.app.include_router(dify_test_routes.router, prefix="/api/dify-test")
+        
 
     def run(self):
         uvicorn.run(

@@ -4,7 +4,7 @@ from uuid import UUID
 
 # Daftar hak akses yang valid di aplikasi Anda
 VALID_ACCESS_RIGHTS = [
-    "dashboard","knowledge-base","market-competitor-insight","prompt-management","upload-document","sipp-case-details","user-management","team-management","role-management","service-public"
+    "dashboard","knowledge-base","market-competitor-insight","prompt-management","upload-document","sipp-case-details","user-management","team-management","role-management","service-public","agent-dashboard"
 ]
 
 class TeamBase(BaseModel):
