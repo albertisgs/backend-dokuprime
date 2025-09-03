@@ -90,8 +90,8 @@ class SynchronoSyncAPI:
         self.app.include_router(notification_admin_router, prefix="/api/notifications/admin")
         
         # Live Chat
-        self.app.include_router(live_chat_user_router, prefix="/api/live-chat")
-        self.app.include_router(live_chat_agent_router, prefix="/api/live-chat")
+        self.app.include_router(live_chat_user_router, prefix="/api")
+        self.app.include_router(live_chat_agent_router, prefix="/api")
         
         #cek connection
         dify_test_routes = DifyTestRoutes()

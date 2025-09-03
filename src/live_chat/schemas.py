@@ -1,9 +1,36 @@
-# src/live_chat/schemas.py
+# src/live_chat/schemas.py (Diperbarui)
 
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
+
+# --- SKEMA BARU: Untuk request dari agen saat mengubah status ---
+class AgentStatusRequest(BaseModel):
+    status: Literal['online', 'away', 'offline']
+
+# --- SKEMA BARU: Untuk request dari agen saat mentransfer chat ---
+class TransferRequest(BaseModel):
+    to_agent_id: UUID
+
+# --- SKEMA BARU: Untuk menampilkan daftar sesi aktif milik user ---
+class UserSessionOut(BaseModel):
+    id: UUID
+    status: str
+    created_at: datetime
+    agent_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+        
+# --- SKEMA BARU: Untuk menampilkan pesan cepat (canned response) ---
+class CannedResponseOut(BaseModel):
+    id: UUID
+    shortcut: str
+    message_text: str
+
+    class Config:
+        from_attributes = True
 
 # Schema untuk request dari user (frontend) saat meminta sesi live chat
 class ChatSessionRequest(BaseModel):
@@ -13,31 +40,28 @@ class ChatSessionRequest(BaseModel):
 class AgentMessageRequest(BaseModel):
     message_text: str
     
-# --- TAMBAHKAN SKEMA BARU INI ---
 # Schema untuk pesan yang dikirim oleh user ke agent
 class UserMessageRequest(BaseModel):
     text: str
-# --- BATAS PENAMBAHAN ---
 
-# --- TAMBAHAN BARU ---
 # Schema untuk menampilkan pesan individual dalam sesi
 class LiveChatMessageOut(BaseModel):
-    id: UUID
+    id: str  # <--- UBAH BARIS INI DARI UUID MENJADI STR
     session_id: UUID
-    sender_id: UUID
+    sender_id: Optional[UUID] = None 
     sender_type: str
     message_text: str
     timestamp: datetime
 
     class Config:
         from_attributes = True
-
+        
 # Schema untuk menampilkan data sesi lengkap, termasuk riwayat dan pesan baru
 class ChatSessionOut(BaseModel):
     id: UUID
     user_id: UUID
     agent_id: Optional[UUID] = None
-    dify_conversation_id: UUID
+    dify_conversation_id: Optional[UUID] = None
     status: str
     created_at: datetime
     claimed_at: Optional[datetime] = None
