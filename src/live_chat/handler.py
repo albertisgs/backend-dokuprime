@@ -319,3 +319,15 @@ class LiveChatHandler:
         # 'messages' sudah ada dari full_session_data
         
         return response_data
+    
+    # --- FUNGSI BARU UNTUK RIWAYAT CHAT ---
+    def get_agent_chat_history(self, agent_id: UUID, limit: int, offset: int):
+        """Handler untuk mengambil daftar riwayat chat milik agen."""
+        return self.repo.get_session_history_for_agent(agent_id, limit, offset)
+
+    def get_agent_chat_transcript(self, session_id: UUID, agent_id: UUID):
+        """Handler untuk mengambil satu transkrip spesifik dan memvalidasi kepemilikan."""
+        session = self.repo.get_session_with_messages(session_id) # Kita bisa gunakan ulang fungsi ini
+        if not session or str(session.get('agent_id')) != str(agent_id) or session.get('status') != 'resolved':
+            raise HTTPException(status_code=404, detail="Riwayat sesi tidak ditemukan atau Anda tidak memiliki akses.")
+        return session

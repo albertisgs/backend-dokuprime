@@ -400,3 +400,36 @@ class LiveChatRepository:
         finally:
             cur.close()
             conn.close()
+            
+
+
+
+    # --- FUNGSI BARU UNTUK RIWAYAT CHAT ---
+    def get_session_history_for_agent(self, agent_id: UUID, limit: int = 20, offset: int = 0) -> List[dict]:
+        """
+        Mengambil daftar sesi yang telah diselesaikan (resolved) oleh seorang agen,
+        diurutkan dari yang terbaru.
+        """
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            sql = """
+                SELECT 
+                    lcs.id,
+                    lcs.ended_at,
+                    lcs.transcript,
+                    u.username as user_name
+                FROM live_chat_sessions lcs
+                JOIN users u ON lcs.user_id = u.id
+                WHERE lcs.agent_id = %s AND lcs.status = 'resolved'
+                ORDER BY lcs.ended_at DESC
+                LIMIT %s OFFSET %s;
+            """
+            cur.execute(sql, (str(agent_id), limit, offset))
+            rows = cur.fetchall()
+            columns = [desc[0] for desc in cur.description]
+            return [dict(zip(columns, row)) for row in rows]
+        finally:
+            cur.close()
+            conn.close()
+

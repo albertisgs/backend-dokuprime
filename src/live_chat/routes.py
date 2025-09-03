@@ -1,13 +1,13 @@
 # src/live_chat/routes.py (Diperbarui)
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from uuid import UUID
 from typing import List, Optional
 from .handler import LiveChatHandler
 from .schemas import (
-    ChatSessionRequest, QueueItemOut, ChatSessionOut, AgentMessageRequest,
+    ChatSessionRequest, QueueItemOut, AgentHistoryDetailOut, AgentMessageRequest,
     UserMessageRequest, AgentStatusRequest, UserSessionOut, CannedResponseOut,
-    TransferRequest
+    TransferRequest, AgentHistoryItemOut,
 )
 from ..utils.sessiondependencies import get_current_user_profile
 from ..utils.dependecies import require_permission
@@ -57,7 +57,7 @@ def user_send_message(
     user_id = current_user.get("id")
     return handler.send_user_message(session_id, user_id, data)
 
-@user_router.get("/sessions/{session_id}/history", response_model=ChatSessionOut)
+@user_router.get("/sessions/{session_id}/history", response_model=AgentHistoryDetailOut)
 def get_session_history(
     session_id: UUID,
     current_user: dict = Depends(get_current_user_profile)
@@ -83,7 +83,7 @@ def get_queue():
     """Mengambil daftar semua sesi chat yang sedang dalam antrian ('queued')."""
     return handler.get_agent_queue()
 
-@agent_router.post("/sessions/{session_id}/claim", response_model=ChatSessionOut)
+@agent_router.post("/sessions/{session_id}/claim", response_model=AgentHistoryDetailOut)
 def claim_session(
     session_id: UUID,
     current_user: dict = Depends(get_current_user_profile)
@@ -130,8 +130,28 @@ def get_canned_responses(current_user: dict = Depends(get_current_user_profile))
     agent_team_id = current_user.get("id_team")
     return handler.get_canned_responses(agent_team_id)
 
-@agent_router.get("/my-session", response_model=Optional[ChatSessionOut])
+@agent_router.get("/my-session", response_model=Optional[AgentHistoryDetailOut])
 def get_my_active_session(current_user: dict = Depends(get_current_user_profile)):
     """(BARU) Agen mengambil sesi aktifnya saat ini (jika ada) untuk persistensi UI."""
     agent_id = current_user.get("id")
     return handler.get_my_active_session(agent_id)
+
+@agent_router.get("/history", response_model=List[AgentHistoryItemOut])
+def get_history_list(
+    current_user: dict = Depends(get_current_user_profile),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0)
+):
+    """(BARU) Agen mengambil daftar sesi yang telah diselesaikannya."""
+    agent_id = current_user.get("id")
+    return handler.get_agent_chat_history(agent_id, limit, offset)
+
+@agent_router.get("/history/{session_id}", response_model=AgentHistoryDetailOut)
+def get_history_detail(
+    session_id: UUID,
+    current_user: dict = Depends(get_current_user_profile)
+):
+    """(BARU) Agen mengambil detail dan transkrip dari satu sesi riwayat."""
+    agent_id = current_user.get("id")
+    # Kita gunakan response model AgentHistoryDetailOut karena sudah mencakup semua data yang dibutuhkan (termasuk transkrip)
+    return handler.get_agent_chat_transcript(session_id, agent_id)

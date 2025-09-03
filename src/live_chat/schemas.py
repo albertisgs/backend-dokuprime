@@ -81,3 +81,16 @@ class QueueItemOut(BaseModel):
 
     class Config:
         from_attributes = True
+        
+        
+class AgentHistoryItemOut(BaseModel):
+    id: UUID
+    user_name: Optional[str] = None
+    ended_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+# --- SKEMA BARU: Untuk detail lengkap riwayat chat (termasuk transkrip) ---
+class AgentHistoryDetailOut(AgentHistoryItemOut):
+    transcript: Optional[str] = None
