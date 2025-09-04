@@ -3,10 +3,11 @@
 from fastapi import HTTPException, status
 from uuid import UUID
 from .repository import LiveChatRepository
-from .schemas import ChatSessionRequest, AgentMessageRequest, UserMessageRequest, AgentStatusRequest, TransferRequest
+from .schemas import ChatSessionRequest, AgentMessageRequest, UserMessageRequest, AgentStatusRequest, TransferRequest, ChatSessionInitiateRequest
 from ..utils.pusher import send_pusher_notification
 from typing import Dict, Any, List
 from datetime import datetime
+import json
 
 class LiveChatHandler:
     def __init__(self):
@@ -31,38 +32,85 @@ class LiveChatHandler:
         )
         return {"status": "success", "agent_id": agent_id, "new_status": status}
 
+    def _get_full_session_details(self, session_id: UUID) -> Dict[str, Any]:
+        """Mengambil semua detail sesi, termasuk riwayat Dify dan pesan live chat."""
+        
+        session_data = self.repo.get_session_with_messages(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Sesi tidak ditemukan.")
+
+        dify_conversation_id = session_data.get('dify_conversation_id')
+        
+        # --- DEBUGGING LOG ---
+        print(f"--- Debugging Sesi {session_id} ---")
+        print(f"Dify Conversation ID: {dify_conversation_id}")
+        
+        dify_history = self.repo.get_dify_history(dify_conversation_id) if dify_conversation_id else []
+        
+        # --- DEBUGGING LOG ---
+        print("Riwayat Mentah dari Dify:")
+        print(json.dumps(dify_history, indent=2, default=str))
+
+        history_messages = []
+        if dify_history:
+            for item in dify_history:
+                history_messages.append({
+                    "id": f"dify-user-{item.get('created_at').isoformat()}",
+                    "sender_type": "user", "message_text": item.get('query'),
+                    "timestamp": item.get('created_at').isoformat()
+                })
+                cleaned_answer = item.get('answer', '').replace('<trigger_agent>', '').strip()
+                if cleaned_answer:
+                    history_messages.append({
+                        "id": f"dify-bot-{item.get('created_at').isoformat()}",
+                        "sender_type": "bot", "message_text": cleaned_answer,
+                        "timestamp": item.get('created_at').isoformat()
+                    })
+        
+        # --- DEBUGGING LOG ---
+        print("\nRiwayat yang Sudah Diformat untuk Frontend:")
+        print(json.dumps(history_messages, indent=2, default=str))
+
+        live_messages = session_data.get('messages', [])
+        
+        # --- DEBUGGING LOG ---
+        print("\nPesan Live dari Database:")
+        print(json.dumps(live_messages, indent=2, default=str))
+
+        response_data = session_data
+        response_data['history'] = history_messages
+        response_data['messages'] = live_messages
+        
+        return response_data
+    
     # --- FUNGSI BARU: Untuk Fitur Sesi Persistent ---
     def get_user_sessions(self, user_id: UUID) -> List[Dict[str, Any]]:
         """Mengambil sesi aktif (chatbot/queued/active) yang bisa dilanjutkan oleh user."""
         return self.repo.get_user_active_sessions(user_id)
 
-    def request_chat_session(self, user_id: UUID, data: ChatSessionRequest) -> Dict[str, Any]:
-        """Membuat sesi chat baru (jika belum ada) dan langsung memasukkannya ke antrian."""
-        # Cek apakah sudah ada agen yang online
+    def request_chat_session(self, live_chat_session_id: UUID) -> Dict[str, Any]:
+        """Mengubah status sesi dari 'chatbot' menjadi 'queued'."""
         available_agent = self.repo.find_available_agent()
-        
-        # Jika tidak ada agen online, jangan buat sesi. Beri tahu user.
         if not available_agent:
             raise HTTPException(status_code=400, detail="Saat ini tidak ada agen yang tersedia. Silakan coba lagi nanti.")
 
-        # Ubah status dari 'chatbot' menjadi 'queued'
-        new_session = self.repo.create_chat_session(user_id, data.dify_conversation_id, status='queued')
-        if not new_session:
-            raise HTTPException(status_code=500, detail="Could not create live chat session.")
+        # --- PERUBAHAN LOGIKA: Update status, bukan membuat baru ---
+        updated_session = self.repo.update_session_status(live_chat_session_id, 'queued')
+        if not updated_session:
+            raise HTTPException(status_code=404, detail="Live chat session not found.")
 
-        # Kirim notifikasi ke channel 'agent-dashboard' bahwa ada sesi baru di antrian
         send_pusher_notification(
             channel='agent-dashboard',
             event='new-pending-session',
             data={
-                'session_id': str(new_session['id']),
-                'user_id': str(new_session['user_id']),
-                'status': new_session['status'],
-                'created_at': new_session['created_at'].isoformat()
+                'session_id': str(updated_session['id']),
+                'user_id': str(updated_session['user_id']),
+                'status': updated_session['status'],
+                'created_at': updated_session['created_at'].isoformat()
             }
         )
-        return {"status": "success", "session_id": new_session['id'], "message": "Permintaan chat berhasil dikirim ke antrian."}
-
+        return {"status": "success", "session_id": updated_session['id'], "message": "Permintaan chat berhasil dikirim ke antrian."}
+    
     def send_user_message(self, session_id: UUID, user_id: UUID, data: UserMessageRequest):
         """User mengirim pesan ke agent."""
         session = self.repo.get_session_with_messages(session_id)
@@ -97,31 +145,8 @@ class LiveChatHandler:
         if not claimed_session:
             raise HTTPException(status_code=404, detail="Sesi tidak ditemukan, sudah diklaim, atau Anda sedang dalam sesi lain.")
 
-        dify_conversation_id = claimed_session.get('dify_conversation_id')
-        dify_history = self.repo.get_dify_history(dify_conversation_id) if dify_conversation_id else []
-        
-        history_messages = []
-        if dify_history:
-            for item in dify_history:
-                history_messages.append({
-                    "id": f"dify-user-{item.get('created_at').isoformat()}",
-                    "sender_type": "user", "message_text": item.get('query'),
-                    "timestamp": item.get('created_at').isoformat()
-                })
-                cleaned_answer = item.get('answer', '').replace('<trigger_agent>', '').strip()
-                if cleaned_answer:
-                    history_messages.append({
-                        "id": f"dify-bot-{item.get('created_at').isoformat()}",
-                        "sender_type": "bot", "message_text": cleaned_answer,
-                        "timestamp": item.get('created_at').isoformat()
-                    })
-
-        live_session_data = self.repo.get_session_with_messages(session_id)
-        live_messages = live_session_data.get('messages', []) if live_session_data else []
-
-        response_data = claimed_session
-        response_data['history'] = history_messages
-        response_data['messages'] = live_messages
+        # Gunakan fungsi helper untuk mendapatkan semua detail
+        response_data = self._get_full_session_details(session_id)
         
         user_channel = f"user-chat-{claimed_session['user_id']}"
         send_pusher_notification(
@@ -278,47 +303,13 @@ class LiveChatHandler:
    
     def get_my_active_session(self, agent_id: UUID):
         """Handler untuk agen mengambil sesi aktif yang sedang ditanganinya."""
-        # Langkah 1: Temukan sesi aktif dasar untuk agen ini
         active_session = self.repo.get_agent_active_session_by_id(agent_id)
         
         if not active_session:
-            return None # Jika tidak ada sesi, kembalikan None
-
-        session_id = active_session['id']
-        
-        # Langkah 2: Ambil data sesi lengkap termasuk pesan live chat
-        full_session_data = self.repo.get_session_with_messages(session_id)
-        if not full_session_data:
             return None
 
-        # Langkah 3: Ambil riwayat dari Dify
-        dify_conversation_id = full_session_data.get('dify_conversation_id')
-        dify_history = self.repo.get_dify_history(dify_conversation_id) if dify_conversation_id else []
-        
-        history_messages = []
-        if dify_history:
-            for item in dify_history:
-                history_messages.append({
-                    "id": f"dify-user-{item.get('created_at').isoformat()}",
-                    "sender_type": "user", "message_text": item.get('query'),
-                    "timestamp": item.get('created_at').isoformat()
-                })
-                cleaned_answer = item.get('answer', '').replace('<trigger_agent>', '').strip()
-                if cleaned_answer:
-                    history_messages.append({
-                        "id": f"dify-bot-{item.get('created_at').isoformat()}",
-                        "sender_type": "bot", "message_text": cleaned_answer,
-                        "timestamp": item.get('created_at').isoformat()
-                    })
-
-        # Langkah 4: Gabungkan semua data menjadi satu respons yang konsisten
-        response_data = full_session_data
-        # Tambahkan user_name dari query pertama agar tersedia di frontend
-        response_data['user_name'] = active_session.get('user_name') 
-        response_data['history'] = history_messages
-        # 'messages' sudah ada dari full_session_data
-        
-        return response_data
+        # Gunakan fungsi helper untuk mendapatkan semua detail
+        return self._get_full_session_details(active_session['id'])
     
     # --- FUNGSI BARU UNTUK RIWAYAT CHAT ---
     def get_agent_chat_history(self, agent_id: UUID, limit: int, offset: int):
@@ -331,3 +322,10 @@ class LiveChatHandler:
         if not session or str(session.get('agent_id')) != str(agent_id) or session.get('status') != 'resolved':
             raise HTTPException(status_code=404, detail="Riwayat sesi tidak ditemukan atau Anda tidak memiliki akses.")
         return session
+    
+    def initiate_chat_session(self, user_id: UUID, data: ChatSessionInitiateRequest) -> Dict[str, Any]:
+        """Membuat sesi chat di DB dengan status 'chatbot' saat pertama kali berinteraksi."""
+        new_session = self.repo.create_chat_session(user_id, data.dify_conversation_id, status='chatbot')
+        if not new_session:
+            raise HTTPException(status_code=500, detail="Could not create initial chat session.")
+        return new_session

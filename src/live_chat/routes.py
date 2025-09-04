@@ -7,7 +7,7 @@ from .handler import LiveChatHandler
 from .schemas import (
     ChatSessionRequest, QueueItemOut, AgentHistoryDetailOut, AgentMessageRequest,
     UserMessageRequest, AgentStatusRequest, UserSessionOut, CannedResponseOut,
-    TransferRequest, AgentHistoryItemOut,
+    TransferRequest, AgentHistoryItemOut, AgentActiveSessionOut, ChatSessionInitiateRequest
 )
 from ..utils.sessiondependencies import get_current_user_profile
 from ..utils.dependecies import require_permission
@@ -34,9 +34,26 @@ handler = LiveChatHandler()
 
 @user_router.get("/sessions", response_model=List[UserSessionOut])
 def get_user_sessions(current_user: dict = Depends(get_current_user_profile)):
-    """(BARU) Mengambil daftar sesi aktif yang bisa dilanjutkan oleh pengguna."""
+    """(BARU) Mengambil daftar sesi aktif yang bisa dilanjutian oleh pengguna."""
     user_id = current_user.get("id")
     return handler.get_user_sessions(user_id)
+
+@user_router.post("/sessions/initiate", status_code=201)
+def initiate_session(
+    data: ChatSessionInitiateRequest,
+    current_user: dict = Depends(get_current_user_profile)
+):
+    """Membuat sesi di database saat obrolan chatbot dimulai."""
+    user_id = current_user.get("id")
+    return handler.initiate_chat_session(user_id, data)
+
+@user_router.post("/request-session", status_code=201)
+def request_session(
+    data: ChatSessionRequest, # Skema ini sekarang hanya berisi live_chat_session_id
+    current_user: dict = Depends(get_current_user_profile)
+):
+    """Pengguna meminta sesi live chat baru dengan agen."""
+    return handler.request_chat_session(data.live_chat_session_id)
 
 @user_router.post("/request-session", status_code=201)
 def request_session(
@@ -57,7 +74,7 @@ def user_send_message(
     user_id = current_user.get("id")
     return handler.send_user_message(session_id, user_id, data)
 
-@user_router.get("/sessions/{session_id}/history", response_model=AgentHistoryDetailOut)
+@user_router.get("/sessions/{session_id}/history", response_model=AgentActiveSessionOut)
 def get_session_history(
     session_id: UUID,
     current_user: dict = Depends(get_current_user_profile)
@@ -83,7 +100,7 @@ def get_queue():
     """Mengambil daftar semua sesi chat yang sedang dalam antrian ('queued')."""
     return handler.get_agent_queue()
 
-@agent_router.post("/sessions/{session_id}/claim", response_model=AgentHistoryDetailOut)
+@agent_router.post("/sessions/{session_id}/claim", response_model=AgentActiveSessionOut)
 def claim_session(
     session_id: UUID,
     current_user: dict = Depends(get_current_user_profile)
@@ -130,7 +147,7 @@ def get_canned_responses(current_user: dict = Depends(get_current_user_profile))
     agent_team_id = current_user.get("id_team")
     return handler.get_canned_responses(agent_team_id)
 
-@agent_router.get("/my-session", response_model=Optional[AgentHistoryDetailOut])
+@agent_router.get("/my-session", response_model=Optional[AgentActiveSessionOut])
 def get_my_active_session(current_user: dict = Depends(get_current_user_profile)):
     """(BARU) Agen mengambil sesi aktifnya saat ini (jika ada) untuk persistensi UI."""
     agent_id = current_user.get("id")

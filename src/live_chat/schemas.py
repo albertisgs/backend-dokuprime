@@ -45,8 +45,9 @@ class UserMessageRequest(BaseModel):
     text: str
 
 # Schema untuk menampilkan pesan individual dalam sesi
+# Schema untuk menampilkan pesan individual dalam sesi
 class LiveChatMessageOut(BaseModel):
-    id: str  # <--- UBAH BARIS INI DARI UUID MENJADI STR
+    id: str
     session_id: UUID
     sender_id: Optional[UUID] = None 
     sender_type: str
@@ -72,6 +73,7 @@ class ChatSessionOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 # Schema untuk item dalam antrian agen
 class QueueItemOut(BaseModel):
     session_id: UUID
@@ -94,3 +96,13 @@ class AgentHistoryItemOut(BaseModel):
 # --- SKEMA BARU: Untuk detail lengkap riwayat chat (termasuk transkrip) ---
 class AgentHistoryDetailOut(AgentHistoryItemOut):
     transcript: Optional[str] = None
+    
+    
+class AgentActiveSessionOut(ChatSessionOut):
+    user_name: Optional[str] = None
+    
+class ChatSessionInitiateRequest(BaseModel):
+    dify_conversation_id: UUID
+    
+class AgentChatRequest(BaseModel):
+    live_chat_session_id: UUID

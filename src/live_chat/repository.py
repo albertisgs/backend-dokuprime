@@ -67,14 +67,14 @@ class LiveChatRepository:
 
     # --- FUNGSI BARU ---
     def find_available_agent(self) -> Optional[Dict[str, Any]]:
-        """Mencari agen yang 'online' dan tidak sedang dalam sesi."""
+        """Mencari agen yang 'online' atau 'away' dan tidak sedang dalam sesi."""
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            # Cari agen yang online dan tidak memiliki current_session_id
+            # Cari agen yang online atau away dan tidak memiliki current_session_id
             sql = """
                 SELECT id, username FROM users
-                WHERE agent_status = 'online' AND current_session_id IS NULL
+                WHERE agent_status IN ('online', 'away') AND current_session_id IS NULL
                 ORDER BY last_seen_at ASC -- Ambil yang paling lama tidak aktif
                 LIMIT 1;
             """
@@ -126,7 +126,6 @@ class LiveChatRepository:
 
     def get_dify_history(self, conversation_id: UUID) -> List[dict]:
         """Mengambil riwayat percakapan dari database Dify (READ-ONLY)."""
-        # (Fungsi ini tidak berubah)
         conn = self._get_dify_connection()
         cur = conn.cursor()
         try:
@@ -146,7 +145,6 @@ class LiveChatRepository:
 
     def get_pending_sessions_for_queue(self) -> List[dict]:
         """Mengambil semua sesi yang 'queued' untuk ditampilkan di antrian."""
-        # (Logika query sedikit berubah untuk mencocokkan status 'queued')
         conn = self._get_connection()
         cur = conn.cursor()
         try:
@@ -250,7 +248,6 @@ class LiveChatRepository:
 
     def add_message(self, session_id: UUID, sender_id: UUID, sender_type: str, text: str) -> dict:
         """Menambahkan pesan baru ke sesi live chat."""
-        # (Fungsi ini tidak berubah)
         conn = self._get_connection()
         cur = conn.cursor()
         try:
@@ -268,12 +265,18 @@ class LiveChatRepository:
             conn.close()
 
     def get_session_with_messages(self, session_id: UUID) -> Optional[dict]:
-        """Mengambil detail sesi beserta semua pesannya."""
-        # (Fungsi ini tidak berubah)
+        """Mengambil detail sesi beserta semua pesannya dan nama pengguna."""
         conn = self._get_connection()
         cur = conn.cursor()
         try:
-            cur.execute("SELECT * FROM live_chat_sessions WHERE id = %s", (str(session_id),))
+            # --- PERUBAHAN: Menambahkan JOIN untuk mendapatkan nama pengguna ---
+            sql_session = """
+                SELECT lcs.*, u.username as user_name
+                FROM live_chat_sessions lcs
+                JOIN users u ON lcs.user_id = u.id
+                WHERE lcs.id = %s
+            """
+            cur.execute(sql_session, (str(session_id),))
             session_data = self._map_row_to_dict(cur.fetchone(), cur)
             if not session_data:
                 return None
@@ -402,7 +405,24 @@ class LiveChatRepository:
             conn.close()
             
 
-
+    def update_session_status(self, session_id: UUID, new_status: str) -> Optional[dict]:
+        """Mengubah status sesi yang sudah ada, misalnya dari 'chatbot' ke 'queued'."""
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            sql = """
+                UPDATE live_chat_sessions
+                SET status = %s
+                WHERE id = %s
+                RETURNING id, user_id, status, created_at;
+            """
+            cur.execute(sql, (new_status, str(session_id)))
+            updated_session = self._map_row_to_dict(cur.fetchone(), cur)
+            conn.commit()
+            return updated_session
+        finally:
+            cur.close()
+            conn.close()
 
     # --- FUNGSI BARU UNTUK RIWAYAT CHAT ---
     def get_session_history_for_agent(self, agent_id: UUID, limit: int = 20, offset: int = 0) -> List[dict]:
@@ -432,4 +452,3 @@ class LiveChatRepository:
         finally:
             cur.close()
             conn.close()
-
