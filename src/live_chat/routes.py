@@ -49,20 +49,12 @@ def initiate_session(
 
 @user_router.post("/request-session", status_code=201)
 def request_session(
-    data: ChatSessionRequest, # Skema ini sekarang hanya berisi live_chat_session_id
-    current_user: dict = Depends(get_current_user_profile)
-):
-    """Pengguna meminta sesi live chat baru dengan agen."""
-    return handler.request_chat_session(data.live_chat_session_id)
-
-@user_router.post("/request-session", status_code=201)
-def request_session(
     data: ChatSessionRequest,
     current_user: dict = Depends(get_current_user_profile)
 ):
     """Pengguna meminta sesi live chat baru dengan agen."""
-    user_id = current_user.get("id")
-    return handler.request_chat_session(user_id, data)
+    # Sekarang kita mengirim ID yang benar ke handler
+    return handler.request_chat_session(data.live_chat_session_id)
 
 @user_router.post("/sessions/{session_id}/send-message")
 def user_send_message(

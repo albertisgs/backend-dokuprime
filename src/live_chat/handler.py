@@ -253,49 +253,59 @@ class LiveChatHandler:
         if not agent_team_id:
             return []
         return self.repo.get_canned_responses_for_team(agent_team_id)
-    
-    # Ganti fungsi get_session_history di src/live_chat/handler.py dengan yang ini
+
 
     def get_session_history(self, session_id: UUID, user_id: UUID) -> Dict[str, Any]:
-        """Handler untuk mengambil riwayat lengkap sesi untuk pengguna."""
+        """
+        Handler untuk mengambil riwayat lengkap sesi untuk pengguna,
+        menggabungkan riwayat Dify dan pesan live secara akurat.
+        """
+        # 1. Ambil data sesi utama dan pesan live dari DB lokal
         session_data = self.repo.get_session_history_for_user(session_id, user_id)
         if not session_data:
             raise HTTPException(status_code=404, detail="Sesi tidak ditemukan atau Anda tidak memiliki akses.")
 
+        # 2. Ambil riwayat percakapan dari Dify jika ada
         dify_conversation_id = session_data.get('dify_conversation_id')
         dify_history = self.repo.get_dify_history(dify_conversation_id) if dify_conversation_id else []
         
+        # 3. Format riwayat Dify menjadi struktur pesan yang konsisten
         history_messages = []
         if dify_history:
             for item in dify_history:
-                # --- PERBAIKAN DI SINI: Tambahkan session_id ---
+                # Pesan dari pengguna ke bot
                 history_messages.append({
                     "id": f"dify-user-{item.get('created_at').isoformat()}",
-                    "session_id": session_id, # <--- TAMBAHKAN INI
-                    "sender_id": user_id,     # <--- TAMBAHKAN INI (opsional tapi bagus)
+                    "session_id": session_id,
+                    "sender_id": user_id,
                     "sender_type": "user", 
                     "message_text": item.get('query'),
                     "timestamp": item.get('created_at')
                 })
+                # Pesan balasan dari bot
                 cleaned_answer = item.get('answer', '').replace('<trigger_agent>', '').strip()
                 if cleaned_answer:
-                    # --- PERBAIKAN DI SINI: Tambahkan session_id ---
                     history_messages.append({
                         "id": f"dify-bot-{item.get('created_at').isoformat()}",
-                        "session_id": session_id, # <--- TAMBAHKAN INI
-                        "sender_id": None,        # <--- TAMBAHKAN INI
+                        "session_id": session_id,
+                        "sender_id": None, # Bot tidak punya ID di tabel users
                         "sender_type": "bot", 
                         "message_text": cleaned_answer,
                         "timestamp": item.get('created_at')
                     })
         
+        # 4. Ambil pesan live chat dari DB lokal
         live_messages = session_data.get('messages', [])
         
+        # 5. Gabungkan kedua daftar pesan dan urutkan berdasarkan timestamp
         all_messages = history_messages + live_messages
         all_messages.sort(key=lambda x: x['timestamp'])
 
+        # 6. Siapkan data respons final
         response_data = session_data
+        # Ganti 'messages' dengan gabungan semua pesan yang sudah urut
         response_data['messages'] = all_messages
+        # Kosongkan 'history' karena sudah tidak relevan, semua sudah ada di 'messages'
         response_data['history'] = [] 
         
         return response_data

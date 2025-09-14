@@ -34,7 +34,7 @@ class CannedResponseOut(BaseModel):
 
 # Schema untuk request dari user (frontend) saat meminta sesi live chat
 class ChatSessionRequest(BaseModel):
-    dify_conversation_id: UUID
+   live_chat_session_id: UUID
 
 # Schema untuk pesan yang dikirim oleh agen
 class AgentMessageRequest(BaseModel):
