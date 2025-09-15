@@ -32,6 +32,8 @@ from src.live_chat.routes import (
 )
 from src.dify_test.routes import DifyTestRoutes
 
+from src.extractimage.routes import (router as extract_image_router, callback_router as extract_image_sistem_router)
+
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -92,6 +94,10 @@ class SynchronoSyncAPI:
         # Live Chat
         self.app.include_router(live_chat_user_router, prefix="/api")
         self.app.include_router(live_chat_agent_router, prefix="/api")
+        
+         # Router untuk ekstraksi gambar ke PDF
+        self.app.include_router(extract_image_router, prefix="/api/extract-image")
+        self.app.include_router(extract_image_sistem_router, prefix="/api/sistem-extract",)
         
         #cek connection
         dify_test_routes = DifyTestRoutes()
