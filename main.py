@@ -45,7 +45,7 @@ class SynchronoSyncAPI:
         )
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
+            allow_origins=["http://localhost:5178"],
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
