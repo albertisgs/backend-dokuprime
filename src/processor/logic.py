@@ -117,4 +117,4 @@ class AIServiceLogic:
         db_txt_path = f"/legal_processed/{final_txt_filename}"
         print(f"✅ Proses Dify selesai. File disimpan di: {db_txt_path}")
 
-        return db_pdf_path, db_txt_path
+        return db_pdf_path, db_txt_path 

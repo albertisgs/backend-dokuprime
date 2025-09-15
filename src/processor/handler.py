@@ -6,6 +6,8 @@ import httpx
 from typing import List, Dict
 from uuid import UUID
 from .logic import AIServiceLogic
+# --- TAMBAHKAN BARIS INI ---
+from fastapi import HTTPException, status
 
 class DocumentProcessorHandler:
     def __init__(self):
@@ -13,6 +15,22 @@ class DocumentProcessorHandler:
         self.input_dir = "ai_temp_input"
         os.makedirs(self.input_dir, exist_ok=True)
         print("DocumentProcessorHandler Initialized")
+
+    # --- TAMBAHKAN KODE DI BAWAH INI ---
+    async def delete_document(self, document_name: str):
+        """Menghapus dokumen dari Dify dataset."""
+        print(f"Received request to delete document from Dify: {document_name}")
+        try:
+            # Panggil metode delete dari logic.dify_dataset secara langsung
+            success = self.logic.dify_dataset.delete_document_from_dataset(document_name)
+            if success:
+                return {"status": "success", "message": f"Document '{document_name}' deleted from Dify."}
+            else:
+                return {"status": "not_found", "message": f"Document '{document_name}' not found in Dify or failed to delete."}
+        except Exception as e:
+            print(f"Error during Dify deletion process: {e}")
+            raise HTTPException(status_code=500, detail="An internal error occurred during Dify deletion.")
+    # --- BATAS AKHIR PENAMBAHAN KODE ---
 
     async def notify_main_api(self, doc_id: UUID, status: str, pdf_path: str = None, txt_path: str = None):
         """Kirim status kembali ke API Utama."""
@@ -48,15 +66,10 @@ class DocumentProcessorHandler:
             try:
                 print(f"\n--- Starting AI processing for: {original_filename} (ID: {doc_id}) ---")
                 
-                # Jalankan alur logika pemrosesan using the saved file path
                 pdf_path, txt_path = await self.logic.run_full_process(temp_input_path, original_filename=original_filename)
                 
-                # Kirim notifikasi sukses
                 await self.notify_main_api(doc_id, "completed", pdf_path, txt_path)
 
             except Exception as e:
                 print(f"❌ Full process failed for {original_filename}: {e}")
-                # Kirim notifikasi gagal
                 await self.notify_main_api(doc_id, "failed")
-            
-            # Note: The temp_input_path is cleaned up inside run_full_process -> ocr_handler.process_document
