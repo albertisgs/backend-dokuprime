@@ -93,6 +93,38 @@ class ImageExtractionRepository:
         finally:
             cur.close()
             conn.close()
+            
+    def update_status_path_and_category(self, doc_id: UUID, status: str, file_path: Optional[str], category: str):
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            sql = """
+                UPDATE image_extractions
+                SET status = %s, file_path = %s, category = %s
+                WHERE id = %s;
+            """
+            cur.execute(sql, (status, file_path, category, str(doc_id)))
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            cur.close()
+            conn.close()
+            
+    def update_extraction_result(self, doc_id: UUID, status: str, file_path: Optional[str], raw_image_path: Optional[str], category: str):
+        conn = self._get_connection()
+        cur = conn.cursor()
+        try:
+            sql = """
+                UPDATE image_extractions
+                SET status = %s, file_path = %s, raw_image_path = %s, category = %s
+                WHERE id = %s;
+            """
+            cur.execute(sql, (status, file_path, raw_image_path, category, str(doc_id)))
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            cur.close()
+            conn.close()
 
     def delete(self, doc_id: UUID) -> Optional[str]:
         conn = self._get_connection()

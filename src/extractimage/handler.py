@@ -98,25 +98,29 @@ class ImageExtractionHandler:
         }
 
     def update_document_status(self, update_data: ExtractionProcessUpdate):
-        """Menerima callback dari AI service untuk update status."""
-        success = self.repo.update_status_and_path(
+        """Menerima callback dari AI service untuk update semua data."""
+        success = self.repo.update_extraction_result(
             doc_id=update_data.document_id,
             status=update_data.status,
-            file_path=update_data.file_path
+            file_path=update_data.file_path,
+            raw_image_path=update_data.raw_image_path, # Kirim path baru ke repo
+            category=update_data.category
         )
         if not success:
             raise HTTPException(status_code=404, detail="Document not found for status update.")
         
         # Kirim notifikasi Pusher ke frontend
         send_pusher_notification(
-            channel='image-extractions', # Channel khusus untuk fitur ini
+            channel='image-extractions',
             event='status-update',
             data={
                 'document_id': str(update_data.document_id),
-                'status': update_data.status
+                'status': update_data.status,
+                'category': update_data.category
             }
         )
         return {"status": "success", "message": "Document status updated."}
+
 
     def get_all_extractions(self, user: dict):
         is_super_admin = str(user.get("id_team")) == SUPERADMIN_TEAM_ID

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from datetime import date
 from typing import List, Optional
 from uuid import UUID
@@ -10,6 +10,8 @@ class ImageExtractionBase(BaseModel):
     team: str
     status: str
     file_path: Optional[str] = None
+    raw_image_path: Optional[str] = None # Tambahkan field ini
+    category: str
 
 class ImageExtractionOut(ImageExtractionBase):
     id: UUID
@@ -22,7 +24,10 @@ class ExtractionProcessUpdate(BaseModel):
     document_id: UUID
     status: str
     file_path: Optional[str] = None
+    raw_image_path: Optional[str] = None # Tambahkan field ini
+    category: str
 
+# --- TAMBAHKAN SKEMA INI ---
 class StatusResponse(BaseModel):
     status: str
     message: str
