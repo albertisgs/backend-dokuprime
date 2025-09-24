@@ -19,9 +19,9 @@ class ImageProcessorHandler:
         if not self.main_api_public_path:
             raise ValueError("MAIN_API_PUBLIC_PATH environment variable not set.")
 
-        # Direktori tujuan akhir di backend utama
-        self.output_dir = os.path.join(self.main_api_public_path, "extract_results")
-        os.makedirs(self.output_dir, exist_ok=True)
+        # # Direktori tujuan akhir di backend utama
+        self.raw_images_dir = os.path.join(self.main_api_public_path, "raw_images")
+        os.makedirs(self.raw_images_dir, exist_ok=True)
 
         # URL Callback ke backend utama dari .env
         self.callback_url = os.getenv("IMAGE_EXTRACTION_CALLBACK_URL")
@@ -43,40 +43,54 @@ class ImageProcessorHandler:
                 print(f"❌ Failed to send callback for doc {payload.get('document_id')}: {e}")
 
     async def convert_image_to_pdf(self, temp_input_path: str, original_filename: str, document_id: UUID):
-        """
-        Fungsi utama untuk konversi, penyimpanan, dan callback.
-        Sekarang menerima path file, bukan objek UploadFile.
-        """
-        base_name, _ = os.path.splitext(original_filename)
-        output_filename = f"{base_name}.pdf"
-        final_output_path = os.path.join(self.output_dir, output_filename)
-
+        raw_image_db_path = None
         try:
-            # 1. Lakukan konversi
-            print(f"🔬 Converting {original_filename} to PDF...")
-            text_content = OcrUtils.extract_text_with_gemini_vision(temp_input_path)
-            
-            if text_content:
-                OcrUtils.create_searchable_pdf(text_content, final_output_path)
-                print(f"✅ Conversion successful. PDF saved to: {final_output_path}")
+            # 1. Pindahkan gambar asli ke direktori publik
+            final_raw_image_path = os.path.join(self.raw_images_dir, original_filename)
+            shutil.copy(temp_input_path, final_raw_image_path)
+            raw_image_db_path = f"/raw_images/{original_filename}"
+            print(f"✅ Raw image saved to: {final_raw_image_path}")
 
-                # 2. Kirim callback sukses
-                db_path = f"/extract_results/{output_filename}"
-                payload = {
-                    "document_id": str(document_id),
-                    "status": "completed",
-                    "file_path": db_path
-                }
-                await self.notify_main_api(payload)
-            else:
-                raise ValueError("Text extraction failed, no content found in image.")
+            # 2. Ekstrak teks dari gambar
+            text_content = OcrUtils.extract_text_with_gemini_vision(temp_input_path)
+            if not text_content:
+                raise ValueError("Text extraction failed.")
+
+            # 3. Klasifikasikan konten
+            category = OcrUtils.classify_image_content(original_filename, text_content)
+
+            # 4. Tentukan direktori output PDF dan buat PDF
+            output_folder_name = category if category != 'general' else 'extract_results'
+            final_output_dir = os.path.join(self.main_api_public_path, output_folder_name)
+            os.makedirs(final_output_dir, exist_ok=True)
+            
+            base_name, _ = os.path.splitext(original_filename)
+            output_filename = f"{base_name}.pdf"
+            final_output_path = os.path.join(final_output_dir, output_filename)
+            OcrUtils.create_searchable_pdf(text_content, final_output_path)
+            
+            # 5. Kirim callback sukses dengan kedua path
+            pdf_db_path = f"/{output_folder_name}/{output_filename}"
+            payload = {
+                "document_id": str(document_id),
+                "status": "completed",
+                "file_path": pdf_db_path,
+                "raw_image_path": raw_image_db_path, # Path gambar asli
+                "category": category
+            }
+            await self.notify_main_api(payload)
 
         except Exception as e:
             print(f"❌ Conversion failed for {original_filename}: {e}")
-            # 3. Kirim callback gagal
-            payload = {"document_id": str(document_id), "status": "failed", "file_path": None}
+            # Kirim callback gagal
+            payload = {
+                "document_id": str(document_id), 
+                "status": "failed", 
+                "file_path": None,
+                "raw_image_path": raw_image_db_path, # Kirim path gambar mentah jika sudah tersimpan
+                "category": "general"
+            }
             await self.notify_main_api(payload)
         finally:
-            # 4. Hapus file sementara setelah selesai
             if os.path.exists(temp_input_path):
                 os.remove(temp_input_path)

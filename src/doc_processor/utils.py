@@ -140,3 +140,48 @@ def create_searchable_pdf(text_content: str, output_path: str):
     c.drawText(textobject)
     c.save()
     print(f"Searchable PDF successfully created at: {output_path}")
+    
+def classify_image_content(filename: str, text_content: str) -> str:
+    """
+    Mengklasifikasikan konten gambar berdasarkan nama file dan teks yang diekstrak.
+    Mengembalikan salah satu dari: 'administrative', 'medicine', 'parking', 'general'.
+    """
+    if not GEMINI_API_KEY or not GEMINI_MODEL:
+        print("⚠️ Gemini API details not set. Defaulting category to 'general'.")
+        return "general"
+
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        
+        prompt = f"""
+        Analyze the following filename and its extracted text content. Classify it into one of these categories: administrative, medicine, parking.
+        - 'administrative' refers to documents like invoices, receipts, forms, letters, certificate, statement letter, or official documents.
+        - 'medicine' refers to prescriptions, drug labels, medical reports, or anything related to health.
+        - 'parking' refers to parking tickets, parking receipts, or signs related to parking.
+
+        If the content does not clearly fit into any of the above categories, classify it as 'general'.
+
+        Respond with ONLY the category name in lowercase and nothing else.
+
+        Filename: "{filename}"
+        Extracted Text: "{text_content[:1500]}..." 
+        """ # Batasi teks untuk efisiensi
+
+        print(f"🔬 Classifying content for: {filename}")
+        response = model.generate_content(prompt)
+        
+        # Bersihkan respons untuk memastikan hanya kategori yang dikembalikan
+        category = response.text.strip().lower()
+        
+        # Validasi respons
+        if category in ["administrative", "medicine", "parking", "general"]:
+            print(f"✅ Classified as: {category}")
+            return category
+        else:
+            print(f"⚠️ LLM returned an invalid category ('{category}'). Defaulting to 'general'.")
+            return "general"
+            
+    except Exception as e:
+        print(f"❌ Error during classification: {e}. Defaulting to 'general'.")
+        return "general"

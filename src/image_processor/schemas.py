@@ -9,3 +9,5 @@ class StatusUpdatePayload(BaseModel):
     document_id: UUID
     status: str
     file_path: str | None = None
+    raw_image_path: str | None = None # Tambahkan field ini
+    category: str | None = "general"
